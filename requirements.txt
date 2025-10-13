@@ -1,0 +1,45 @@
+# CT Super-Resolution with Latent Diffusion - Requirements
+# Last updated: 2025-01-12
+
+# Core deep learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Diffusion models
+diffusers>=0.25.0
+
+# Distributed training
+accelerate>=0.26.0
+
+# Experiment tracking
+wandb>=0.16.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Image processing
+Pillow>=10.0.0
+scikit-image>=0.21.0
+opencv-python>=4.8.0
+
+# Medical imaging
+nibabel>=5.1.0
+SimpleITK>=2.3.0
+
+# PyTorch Lightning (for VQ-AE model)
+pytorch-lightning>=2.0.0
+lightning>=2.0.0
+
+# Utilities
+tqdm>=4.65.0
+pyyaml>=6.0
+omegaconf>=2.3.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Development
+ipython>=8.12.0
+jupyter>=1.0.0
