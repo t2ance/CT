@@ -913,18 +913,18 @@ def train(config: dict, args):
                         accelerator.print(f"\nRunning full validation with metrics ({num_val_samples} samples)...")
 
                     # try:
-                    if accelerator.num_processes == 1:
+                    # if accelerator.num_processes == 1:
                         # Single GPU - safe to generate visualizations
-                        if training_config.get('use_wandb', True) and accelerator.is_main_process and vae is not None:
-                            accelerator.print("Generating visualizations...")
-                            viz_dict = generate_visualizations(
-                                model, val_loader, vae, config, accelerator, num_samples=1
-                            )
-                            if viz_dict:
-                                accelerator.log(viz_dict, step=global_step)
-                            accelerator.print("Visualizations generated.")
-                    elif accelerator.is_main_process:
-                        accelerator.print("  Skipping visualization (not safe with prepared loaders in multi-GPU mode)")
+                    if training_config.get('use_wandb', True) and accelerator.is_main_process and vae is not None:
+                        accelerator.print("Generating visualizations...")
+                        viz_dict = generate_visualizations(
+                            model, val_loader, vae, config, accelerator, num_samples=1
+                        )
+                        if viz_dict:
+                            accelerator.log(viz_dict, step=global_step)
+                        accelerator.print("Visualizations generated.")
+                    # elif accelerator.is_main_process:
+                        # accelerator.print("  Skipping visualization (not safe with prepared loaders in multi-GPU mode)")
 
                     accelerator.wait_for_everyone()
 

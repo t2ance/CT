@@ -72,8 +72,8 @@ fi
 LOG_DIR="./log"
 mkdir -p "${LOG_DIR}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="${LOG_DIR}/train_${TIMESTAMP}.log"
-PID_FILE="${LOG_DIR}/train_${TIMESTAMP}.pid"
+LOG_FILE="${LOG_DIR}/train.log"
+PID_FILE="${LOG_DIR}/train.pid"
 
 echo ""
 echo "Launching training with nohup..."
