@@ -275,7 +275,7 @@ def generate_visualizations(
 @torch.no_grad()
 def validate_with_metrics(
     model: DiffusionUNet3D,
-    val_loader: DataLoader,  # IMPORTANT: Should be PREPARED dataloader for automatic distribution
+    val_loader: DataLoader,
     vae: FrozenVQAE,
     config: dict,
     accelerator: Accelerator,
@@ -679,9 +679,29 @@ def train(config: dict, args):
         accelerator.print("\nCreating dataloaders...")
 
     data_config = config['data']
+    legacy_batch_size = training_config.get('batch_size')
+    train_batch_size = training_config.get('train_batch_size', legacy_batch_size)
+    eval_batch_size = training_config.get('eval_batch_size', train_batch_size)
+
+    if train_batch_size is None:
+        train_batch_size = 4
+    if eval_batch_size is None:
+        eval_batch_size = train_batch_size
+
+    if legacy_batch_size is not None and 'train_batch_size' not in training_config:
+        if accelerator.is_main_process:
+            accelerator.print(
+                "Warning: 'training.batch_size' is deprecated. "
+                "Use 'train_batch_size' and 'eval_batch_size' instead."
+            )
+
+    training_config['train_batch_size'] = train_batch_size
+    training_config['eval_batch_size'] = eval_batch_size
+
     train_loader, val_loader = create_latent_dataloaders(
         latent_dir=data_config['latent_cache_dir'],
-        batch_size=training_config['batch_size'],
+        train_batch_size=train_batch_size,
+        eval_batch_size=eval_batch_size,
         num_workers=training_config.get('num_workers', 4),
         normalize_latents=data_config.get('normalize_latents', False),
         pin_memory=True,
@@ -690,7 +710,8 @@ def train(config: dict, args):
     if accelerator.is_main_process:
         accelerator.print(f"  Train samples: {len(train_loader.dataset)}")
         accelerator.print(f"  Val samples: {len(val_loader.dataset)}")
-        accelerator.print(f"  Batch size: {training_config['batch_size']}")
+        accelerator.print(f"  Train batch size: {train_batch_size}")
+        accelerator.print(f"  Eval batch size: {eval_batch_size}")
         accelerator.print(f"  Train batches: {len(train_loader)}")
 
     # Load VQ-AE for visualization and metrics
@@ -891,47 +912,37 @@ def train(config: dict, args):
                     if accelerator.is_main_process:
                         accelerator.print(f"\nRunning full validation with metrics ({num_val_samples} samples)...")
 
-                    try:
-                        # CRITICAL FIX: Skip visualization generation during multi-GPU training
-                        # because generate_visualizations() tries to iterate through the PREPARED
-                        # val_loader (which has DistributedSampler) on only ONE process, causing deadlock.
-                        # Visualization should only be done with unprepared loaders or on all processes.
-                        #
-                        # TODO: Fix generate_visualizations() to work with prepared loaders OR
-                        # create a separate unprepared val_loader just for visualization
-                        #
-                        # For now, we skip visualization in multi-GPU mode to avoid deadlocks
-                        if accelerator.num_processes == 1:
-                            # Single GPU - safe to generate visualizations
-                            if training_config.get('use_wandb', True) and accelerator.is_main_process and vae is not None:
-                                accelerator.print("Generating visualizations...")
-                                viz_dict = generate_visualizations(
-                                    model, val_loader, vae, config, accelerator, num_samples=1
-                                )
-                                if viz_dict:
-                                    accelerator.log(viz_dict, step=global_step)
-                                accelerator.print("Visualizations generated.")
-                        elif accelerator.is_main_process:
-                            accelerator.print("  Skipping visualization (not safe with prepared loaders in multi-GPU mode)")
+                    # try:
+                    if accelerator.num_processes == 1:
+                        # Single GPU - safe to generate visualizations
+                        if training_config.get('use_wandb', True) and accelerator.is_main_process and vae is not None:
+                            accelerator.print("Generating visualizations...")
+                            viz_dict = generate_visualizations(
+                                model, val_loader, vae, config, accelerator, num_samples=1
+                            )
+                            if viz_dict:
+                                accelerator.log(viz_dict, step=global_step)
+                            accelerator.print("Visualizations generated.")
+                    elif accelerator.is_main_process:
+                        accelerator.print("  Skipping visualization (not safe with prepared loaders in multi-GPU mode)")
 
-                        # CRITICAL: Synchronize all processes before starting distributed validation
-                        accelerator.wait_for_everyone()
+                    accelerator.wait_for_everyone()
 
-                        metrics = validate_with_metrics(
-                            model, val_loader, vae, config, accelerator,
-                            num_samples=num_val_samples
-                        )
+                    metrics = validate_with_metrics(
+                        model, val_loader, vae, config, accelerator,
+                        num_samples=num_val_samples
+                    )
 
-                        if accelerator.is_main_process and metrics:
-                            log_dict = {f'val/metrics/{k}': v for k, v in metrics.items()}
-                            accelerator.log(log_dict, step=global_step)
+                    if accelerator.is_main_process and metrics:
+                        log_dict = {f'val/metrics/{k}': v for k, v in metrics.items()}
+                        accelerator.log(log_dict, step=global_step)
 
-                            accelerator.print(f"  SSIM: {metrics.get('ssim_mean', 0):.4f} ± {metrics.get('ssim_std', 0):.4f}")
-                            accelerator.print(f"  PSNR: {metrics.get('psnr_mean', 0):.2f} ± {metrics.get('psnr_std', 0):.2f} dB")
-                            accelerator.print(f"  Samples evaluated: {metrics.get('num_samples', 0)}")
-                    except Exception as e:
-                        if accelerator.is_main_process:
-                            accelerator.print(f"  Warning: Full validation failed: {e}")
+                        accelerator.print(f"  SSIM: {metrics.get('ssim_mean', 0):.4f} ± {metrics.get('ssim_std', 0):.4f}")
+                        accelerator.print(f"  PSNR: {metrics.get('psnr_mean', 0):.2f} ± {metrics.get('psnr_std', 0):.2f} dB")
+                        accelerator.print(f"  Samples evaluated: {metrics.get('num_samples', 0)}")
+                    # except Exception as e:
+                    #     if accelerator.is_main_process:
+                    #         accelerator.print(f"  Warning: Full validation failed: {e}")
 
             # Save checkpoint
             if global_step % save_every == 0 and accelerator.sync_gradients and global_step > 0:
