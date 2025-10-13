@@ -95,9 +95,9 @@ training:
   max_grad_norm: 1.0
 
   # Validation and checkpointing
-  val_every: 200 # Lightweight validation (MSE only)
+  # val_every: 200 # Lightweight validation (MSE only)
   save_every: 200 # Save checkpoint every N steps
-  # val_every: 1 # Lightweight validation (MSE only)
+  val_every: 1 # Lightweight validation (MSE only)
   # save_every: 1 # Save checkpoint every N steps
 
   # Number of dataloader workers
@@ -121,9 +121,11 @@ validation:
 
   # Full validation settings
   enable_full_validation: true # Enable SSIM/PSNR metrics
-  # full_val_every: 500 # Run full validation every N steps (slower)
-  full_val_every: 200 # Run full validation every N steps (slower)
+  full_val_every: 1 # Run full validation every N steps (slower)
+  # full_val_every: 200 # Run full validation every N steps (slower)
   num_samples: 32 # Number of validation samples to evaluate (4-8 recommended)
+
+  num_visualizations: 10
 
   # Metrics settings
   data_range:

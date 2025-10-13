@@ -22,8 +22,15 @@ class CTVisualization:
     5. Histogram comparison
     """
 
-    def __init__(self, clip_range=(-1000, 1000)):
+    def __init__(
+        self,
+        clip_range=(-1000, 1000),
+        display_range=None,
+        percentile_window=(1.0, 99.0),
+    ):
         self.clip_range = clip_range
+        self.display_range = display_range
+        self.percentile_window = percentile_window
 
     def _denormalize(self, tensor):
         """Convert from [-1, 1] to HU values"""
@@ -44,6 +51,21 @@ class CTVisualization:
             tensor = tensor[0]
 
         return tensor
+
+    def _resolve_display_range(self, tensor):
+        """Determine display window for visualization."""
+        if self.display_range is not None:
+            return self.display_range
+
+        if self.percentile_window is not None:
+            lo_pct, hi_pct = self.percentile_window
+            if 0.0 <= lo_pct < hi_pct <= 100.0:
+                lo_val = float(np.percentile(tensor, lo_pct))
+                hi_val = float(np.percentile(tensor, hi_pct))
+                if hi_val - lo_val > 1e-3:
+                    return (lo_val, hi_val)
+
+        return self.clip_range
 
     def create_multi_slice_comparison(self, ld, pred, gt, num_slices=5):
         """
@@ -70,6 +92,7 @@ class CTVisualization:
         # Select evenly spaced slices from GT
         gt_depth = gt.shape[0]
         slice_indices = np.linspace(0, gt_depth-1, num_slices, dtype=int)
+        vmin, vmax = self._resolve_display_range(gt)
 
         # Upsample LD to match GT depth for visualization
         ld_upsampled = self._upsample_ld(ld, gt_depth)
@@ -81,19 +104,19 @@ class CTVisualization:
         for i, slice_idx in enumerate(slice_indices):
             # LD
             ax1 = fig.add_subplot(gs[i, 0])
-            ax1.imshow(ld_upsampled[slice_idx], cmap='gray', vmin=-200, vmax=200)
+            ax1.imshow(ld_upsampled[slice_idx], cmap='gray', vmin=vmin, vmax=vmax)
             ax1.set_title(f'LD (Slice {slice_idx})')
             ax1.axis('off')
 
             # Prediction
             ax2 = fig.add_subplot(gs[i, 1])
-            ax2.imshow(pred[slice_idx], cmap='gray', vmin=-200, vmax=200)
+            ax2.imshow(pred[slice_idx], cmap='gray', vmin=vmin, vmax=vmax)
             ax2.set_title(f'Predicted (Slice {slice_idx})')
             ax2.axis('off')
 
             # Ground Truth
             ax3 = fig.add_subplot(gs[i, 2])
-            ax3.imshow(gt[slice_idx], cmap='gray', vmin=-200, vmax=200)
+            ax3.imshow(gt[slice_idx], cmap='gray', vmin=vmin, vmax=vmax)
             ax3.set_title(f'Ground Truth (Slice {slice_idx})')
             ax3.axis('off')
 
@@ -131,6 +154,7 @@ class CTVisualization:
         # Get central slices
         center_idx = gt.shape[0] // 2
         ld_center = ld[ld.shape[0] // 2] if ld.shape[0] > 1 else ld[0]
+        vmin, vmax = self._resolve_display_range(gt)
         pred_center = pred[center_idx]
         gt_center = gt[center_idx]
 
@@ -138,15 +162,15 @@ class CTVisualization:
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
         # Row 1: Images
-        axes[0, 0].imshow(ld_center, cmap='gray', vmin=-200, vmax=200)
+        axes[0, 0].imshow(ld_center, cmap='gray', vmin=vmin, vmax=vmax)
         axes[0, 0].set_title('Low-Dose Input', fontsize=14)
         axes[0, 0].axis('off')
 
-        axes[0, 1].imshow(pred_center, cmap='gray', vmin=-200, vmax=200)
+        axes[0, 1].imshow(pred_center, cmap='gray', vmin=vmin, vmax=vmax)
         axes[0, 1].set_title('Prediction', fontsize=14)
         axes[0, 1].axis('off')
 
-        axes[0, 2].imshow(gt_center, cmap='gray', vmin=-200, vmax=200)
+        axes[0, 2].imshow(gt_center, cmap='gray', vmin=vmin, vmax=vmax)
         axes[0, 2].set_title('Ground Truth', fontsize=14)
         axes[0, 2].axis('off')
 
@@ -223,6 +247,7 @@ class CTVisualization:
 
         # Create figure
         fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+        vmin, vmax = self._resolve_display_range(gt)
 
         views = [
             ('Axial', axial_ld, axial_pred, axial_gt),
@@ -231,15 +256,15 @@ class CTVisualization:
         ]
 
         for i, (view_name, ld_slice, pred_slice, gt_slice) in enumerate(views):
-            axes[i, 0].imshow(ld_slice, cmap='gray', vmin=-200, vmax=200)
+            axes[i, 0].imshow(ld_slice, cmap='gray', vmin=vmin, vmax=vmax)
             axes[i, 0].set_title(f'{view_name} - LD Input')
             axes[i, 0].axis('off')
 
-            axes[i, 1].imshow(pred_slice, cmap='gray', vmin=-200, vmax=200)
+            axes[i, 1].imshow(pred_slice, cmap='gray', vmin=vmin, vmax=vmax)
             axes[i, 1].set_title(f'{view_name} - Prediction')
             axes[i, 1].axis('off')
 
-            axes[i, 2].imshow(gt_slice, cmap='gray', vmin=-200, vmax=200)
+            axes[i, 2].imshow(gt_slice, cmap='gray', vmin=vmin, vmax=vmax)
             axes[i, 2].set_title(f'{view_name} - Ground Truth')
             axes[i, 2].axis('off')
 
@@ -270,6 +295,7 @@ class CTVisualization:
 
         # Upsample LD to match GT
         ld_upsampled = self._upsample_ld(ld, gt.shape[0])
+        vmin, vmax = self._resolve_display_range(gt)
 
         # Compute MIP along each axis
         fig, axes = plt.subplots(3, 3, figsize=(12, 12))
@@ -282,17 +308,17 @@ class CTVisualization:
 
         for i, (proj_name, axis) in enumerate(projections):
             # LD MIP
-            axes[i, 0].imshow(np.max(ld_upsampled, axis=axis), cmap='gray', vmin=-200, vmax=200)
+            axes[i, 0].imshow(np.max(ld_upsampled, axis=axis), cmap='gray', vmin=vmin, vmax=vmax)
             axes[i, 0].set_title(f'{proj_name} MIP - LD')
             axes[i, 0].axis('off')
 
             # Prediction MIP
-            axes[i, 1].imshow(np.max(pred, axis=axis), cmap='gray', vmin=-200, vmax=200)
+            axes[i, 1].imshow(np.max(pred, axis=axis), cmap='gray', vmin=vmin, vmax=vmax)
             axes[i, 1].set_title(f'{proj_name} MIP - Prediction')
             axes[i, 1].axis('off')
 
             # GT MIP
-            axes[i, 2].imshow(np.max(gt, axis=axis), cmap='gray', vmin=-200, vmax=200)
+            axes[i, 2].imshow(np.max(gt, axis=axis), cmap='gray', vmin=vmin, vmax=vmax)
             axes[i, 2].set_title(f'{proj_name} MIP - Ground Truth')
             axes[i, 2].axis('off')
 

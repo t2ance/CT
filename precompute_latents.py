@@ -102,7 +102,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_ct_scan(ct_path: Path, target_shape: Tuple[int, int, int] = None) -> torch.Tensor:
+def load_ct_scan(
+    ct_path: Path,
+    target_shape: Tuple[int, int, int] = None,
+    clip_range: Tuple[float, float] = (-1000.0, 1000.0),
+) -> torch.Tensor:
     """
     Load and preprocess CT scan from NIfTI file.
 
@@ -118,21 +122,42 @@ def load_ct_scan(ct_path: Path, target_shape: Tuple[int, int, int] = None) -> to
     ct_array = nifti.get_fdata()
 
     # Convert to tensor
-    ct_tensor = torch.from_numpy(ct_array).float()
+    ct_tensor = torch.from_numpy(ct_array).float()  # (H, W, D)
 
-    # Add batch and channel dimensions [B, C, D, H, W]
-    ct_tensor = ct_tensor.unsqueeze(0).unsqueeze(0)
+    # Add batch & channel dims and reorder to [B, C, D, H, W]
+    ct_tensor = ct_tensor.unsqueeze(0).unsqueeze(0)  # [1, 1, H, W, D]
+    ct_tensor = ct_tensor.permute(0, 1, 4, 2, 3).contiguous()  # [1, 1, D, H, W]
 
-    # Resize if needed
     if target_shape is not None:
-        current_shape = ct_tensor.shape[2:]
-        if current_shape != tuple(target_shape):
+        target_depth, target_height, target_width = target_shape
+        depth, height, width = ct_tensor.shape[2:]
+
+        # Stage 1: resize only height/width (keep depth the same)
+        if (height, width) != (target_height, target_width):
             ct_tensor = F.interpolate(
                 ct_tensor,
-                size=target_shape,
+                size=(depth, target_height, target_width),
                 mode='trilinear',
                 align_corners=False
             )
+            depth, height, width = ct_tensor.shape[2:]
+
+        # Stage 2: resize depth while preserving target H/W
+        if depth != target_depth:
+            ct_tensor = F.interpolate(
+                ct_tensor,
+                size=(target_depth, height, width),
+                mode='trilinear',
+                align_corners=False
+            )
+            depth, height, width = ct_tensor.shape[2:]
+
+    # Normalize to [-1, 1] using clip_range window
+    if clip_range is not None:
+        min_val, max_val = clip_range
+        ct_tensor = ct_tensor.clamp(min=min_val, max=max_val)
+        ct_tensor = (ct_tensor - min_val) / (max_val - min_val + 1e-8)  # [0, 1]
+        ct_tensor = ct_tensor * 2.0 - 1.0  # [-1, 1]
 
     return ct_tensor
 
@@ -203,6 +228,7 @@ def encode_and_save(
     output_dir: Path,
     target_shape: Tuple[int, int, int],
     device: torch.device,
+    batch_size: int = 1,
 ):
     """
     Encode CT pairs to latent space and save to disk.
@@ -216,22 +242,46 @@ def encode_and_save(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for idx, (ld_path, hd_path) in enumerate(tqdm(pairs, desc=f"Encoding to {output_dir.name}")):
-        try:
-            # Load CT scans
-            ld_ct = load_ct_scan(ld_path, target_shape).to(device)
-            hd_ct = load_ct_scan(hd_path, target_shape).to(device)
+    batch_size = max(1, int(batch_size))
 
-            # Encode to latent space
-            ld_latent = vae.encode(ld_ct)  # [1, C, D', H', W']
-            hd_latent = vae.encode(hd_ct)
+    progress = tqdm(total=len(pairs), desc=f"Encoding to {output_dir.name}")
 
-            # Remove batch dimension
-            ld_latent = ld_latent.squeeze(0).cpu()  # [C, D', H', W']
-            hd_latent = hd_latent.squeeze(0).cpu()
+    for start in range(0, len(pairs), batch_size):
+        batch_pairs = pairs[start:start + batch_size]
 
-            # Save latents
-            output_path = output_dir / f"sample_{idx:03d}.pt"
+        ld_batch = []
+        hd_batch = []
+        metadata = []
+
+        # Load and preprocess batch
+        for offset, (ld_path, hd_path) in enumerate(batch_pairs):
+            try:
+                ld_ct = load_ct_scan(ld_path, target_shape).to(device)
+                hd_ct = load_ct_scan(hd_path, target_shape).to(device)
+            except Exception as e:
+                print(f"\nError loading {ld_path.name}: {e}")
+                continue
+
+            ld_batch.append(ld_ct)
+            hd_batch.append(hd_ct)
+            metadata.append((start + offset, ld_path, hd_path))
+
+        if not metadata:
+            progress.update(len(batch_pairs))
+            continue
+
+        ld_tensor = torch.cat(ld_batch, dim=0)
+        hd_tensor = torch.cat(hd_batch, dim=0)
+
+        with torch.no_grad():
+            ld_latents = vae.encode(ld_tensor)
+            hd_latents = vae.encode(hd_tensor)
+
+        ld_latents = ld_latents.cpu()
+        hd_latents = hd_latents.cpu()
+
+        for (sample_idx, ld_path, hd_path), ld_latent, hd_latent in zip(metadata, ld_latents, hd_latents):
+            output_path = output_dir / f"sample_{sample_idx:03d}.pt"
             torch.save({
                 'ld_latent': ld_latent,
                 'hd_latent': hd_latent,
@@ -239,9 +289,14 @@ def encode_and_save(
                 'hd_path': str(hd_path),
             }, output_path)
 
-        except Exception as e:
-            print(f"\nError processing {ld_path.name}: {e}")
-            continue
+        progress.update(len(batch_pairs))
+
+        # Free memory
+        del ld_batch, hd_batch, ld_tensor, hd_tensor, ld_latents, hd_latents
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
+
+    progress.close()
 
 
 def main():
@@ -306,13 +361,17 @@ def main():
     print(f"\n{'='*70}")
     print("Encoding training set...")
     print(f"{'='*70}")
-    encode_and_save(train_pairs, vae, train_dir, tuple(args.target_shape), device)
+    encode_and_save(
+        train_pairs, vae, train_dir, tuple(args.target_shape), device, batch_size=args.batch_size
+    )
 
     # Encode and save validation set
     print(f"\n{'='*70}")
     print("Encoding validation set...")
     print(f"{'='*70}")
-    encode_and_save(val_pairs, vae, val_dir, tuple(args.target_shape), device)
+    encode_and_save(
+        val_pairs, vae, val_dir, tuple(args.target_shape), device, batch_size=args.batch_size
+    )
 
     # Summary
     print("\n" + "="*70)

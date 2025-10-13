@@ -68,13 +68,21 @@ fi
 echo "Starting precomputation..."
 echo ""
 
+# python precompute_latents.py \
+#     --data_dir "${DATA_DIR}" \
+#     --latent_cache_dir "${OUTPUT_DIR}" \
+#     --config "${CONFIG_FILE}" \
+#     --train_split 0.8 \
+#     --device cuda \
+#     --batch_size 32
+
 python precompute_latents.py \
-    --data_dir "${DATA_DIR}" \
-    --latent_cache_dir "${OUTPUT_DIR}" \
-    --config "${CONFIG_FILE}" \
-    --train_split 0.8 \
-    --device cuda \
-    --batch_size 1
+ --data_dir /data1/peijia/ct/processed/ct_pairs \
+ --latent_cache_dir latents_cache \
+ --vae_checkpoint /data2/peijia/projects/BioAgent/3D-MedDiffusion/checkpoints/PatchVolume_8x_s2.ckpt \
+ --device cuda \
+ --config config_diffusion.yaml \
+--batch_size 16
 
 echo ""
 echo "========================================================================"

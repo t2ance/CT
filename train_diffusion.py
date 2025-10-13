@@ -242,17 +242,9 @@ def validate_with_metrics(
         data_range=data_range, compute_slice_wise=compute_slice_wise
     )
 
-    # CRITICAL FIX: Calculate per-process sample target
-    # num_samples is TOTAL across all processes, not per-process
-    # We need to distribute this evenly and ensure ALL processes iterate the same number of times
     samples_per_process = (
         num_samples + accelerator.num_processes - 1
     ) // accelerator.num_processes
-
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Starting validation")
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Total samples requested: {num_samples}")
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Samples per process: {samples_per_process}")
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Num processes: {accelerator.num_processes}")
 
     # Collect metrics
     local_metrics = []
@@ -264,32 +256,18 @@ def validate_with_metrics(
             f"  Validating {num_samples} samples total ({samples_per_process} per process across {accelerator.num_processes} GPU(s))..."
         )
 
-    # Iterate through validation set
-    # NOTE: val_loader is PREPARED, so each process gets different batches automatically
-    # CRITICAL: All processes must iterate through the SAME NUMBER of batches
-    # to avoid one process reaching wait_for_everyone() while others are still looping
     for batch in tqdm(val_loader, desc=f"Validating (GPU {accelerator.process_index})"):
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Processing batch {batch_idx}")
-
-        # CRITICAL: Check if we should process this batch BEFORE entering DDIM loop
-        # This ensures all processes make the same loop iteration decision
         if sample_idx >= samples_per_process:
-            # print(f"[GPU {accelerator.process_index}] DEBUG: Reached target samples ({sample_idx}/{samples_per_process}), breaking from batch loop")
             break
 
         ld_latent = batch["ld_latent"].to(accelerator.device)
         hd_latent_gt = batch["hd_latent"].to(accelerator.device)
         batch_size = hd_latent_gt.shape[0]
 
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Batch {batch_idx} has {batch_size} samples")
-
         # Start from pure noise
         hd_latent_pred = torch.randn_like(hd_latent_gt)
 
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Starting DDIM sampling for batch {batch_idx}")
-
         # DDIM sampling
-        # IMPORTANT: No synchronization inside loop - each process samples independently
         for t in ddim_scheduler.timesteps:
             # Concatenate conditioning
             model_input = torch.cat([hd_latent_pred, ld_latent], dim=1)
@@ -302,9 +280,6 @@ def validate_with_metrics(
                 noise_pred, t, hd_latent_pred
             ).prev_sample
 
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Finished DDIM sampling for batch {batch_idx}")
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Decoding latents with VQ-AE")
-
         # Decode latents to CT space
         pred_ct = vae.decode(hd_latent_pred)  # [B, 1, D, H, W]
         gt_ct = vae.decode(hd_latent_gt)
@@ -314,13 +289,9 @@ def validate_with_metrics(
             else None
         )
 
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Computing metrics for batch {batch_idx}")
-
         # Compute metrics for each sample in batch
         for i in range(pred_ct.shape[0]):
-            # Check if we've exceeded our per-process quota
             if sample_idx >= samples_per_process:
-                # print(f"[GPU {accelerator.process_index}] DEBUG: Reached sample limit within batch, stopping at sample {sample_idx}")
                 break
 
             # Convert to numpy and remove batch/channel dims
@@ -330,7 +301,6 @@ def validate_with_metrics(
             local_metrics.append(metrics_calc.compute_metrics(pred_np, gt_np))
 
             sample_idx += 1
-            # print(f"[GPU {accelerator.process_index}] DEBUG: Processed sample {sample_idx}/{samples_per_process}")
 
             if collect_visualizations and viz_count < viz_target:
                 sample_viz = viz_helper.create_multi_slice_comparison(
@@ -344,15 +314,8 @@ def validate_with_metrics(
 
         batch_idx += 1
 
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Finished batch loop, processed {sample_idx} samples across {batch_idx} batches")
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Waiting for all processes before gathering...")
-
-    # CRITICAL: Synchronize all processes before gathering
-    # This ensures all processes have finished sampling before we gather metrics
-    # At this point, ALL processes should have exited the batch loop
+    # Synchronize all processes before gathering
     accelerator.wait_for_everyone()
-
-    # print(f"[GPU {accelerator.process_index}] DEBUG: All processes synchronized, preparing to gather metrics")
 
     # Convert local metrics to tensors for gathering
     if local_metrics:
@@ -362,22 +325,18 @@ def validate_with_metrics(
         local_psnr = torch.tensor(
             [m["psnr"] for m in local_metrics], device=accelerator.device
         )
-        # print(f"[GPU {accelerator.process_index}] DEBUG: Local metrics: {len(local_metrics)} samples")
     else:
         # Create empty tensors if no metrics computed on this process
         local_ssim = torch.tensor([], device=accelerator.device)
         local_psnr = torch.tensor([], device=accelerator.device)
-        # print(f"[GPU {accelerator.process_index}] DEBUG: No local metrics computed")
 
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Gathering metrics from all processes...")
+    # Gather metrics from all processes
 
     # Gather metrics from all processes
     # NOTE: accelerator.gather() concatenates tensors from all processes
     # If a process has no metrics (empty tensor), it still participates in gather
     all_ssim = accelerator.gather(local_ssim)
     all_psnr = accelerator.gather(local_psnr)
-
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Metrics gathered successfully")
 
     # Compute aggregated statistics (only on main process)
     if accelerator.is_main_process:
@@ -394,12 +353,10 @@ def validate_with_metrics(
                 "psnr": float(np.mean(all_psnr)),
                 "num_samples": len(all_ssim),
             }
-            # print(f"[GPU {accelerator.process_index}] DEBUG: Final metrics computed: {len(all_ssim)} total samples")
     else:
         metrics_dict = {}
 
-    # print(f"[GPU {accelerator.process_index}] DEBUG: Validation complete")
-
+    # Validation complete
     model.train()
     if not accelerator.is_main_process:
         visualizations = {}
