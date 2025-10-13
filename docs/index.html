@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- Meta tags for social media banners, these should be filled in appropriatly as they are your "business card" -->
+  <!-- Replace the content tag with appropriate information -->
+  <meta name="description" content="DESCRIPTION META TAG">
+  <meta property="og:title" content="SOCIAL MEDIA TITLE TAG"/>
+  <meta property="og:description" content="SOCIAL MEDIA DESCRIPTION TAG TAG"/>
+  <meta property="og:url" content="URL OF THE WEBSITE"/>
+  <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X630-->
+  <meta property="og:image" content="static/image/your_banner_image.png" />
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+
+
+  <meta name="twitter:title" content="TWITTER BANNER TITLE META TAG">
+  <meta name="twitter:description" content="TWITTER BANNER DESCRIPTION META TAG">
+  <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X600-->
+  <meta name="twitter:image" content="static/images/your_twitter_banner_image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Keywords for your paper to be indexed by-->
+  <meta name="keywords" content="KEYWORDS SHOULD BE PLACED HERE">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+  <title>3D MedDiffusion: A 3D Medical Diffusion Model for Controllable and High-quality Medical Image Generation</title>
+  <link rel="icon" type="image/x-icon" href="static/images/Lion.ico">
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+  rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+  href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script src="static/js/bulma-carousel.min.js"></script>
+  <script src="static/js/bulma-slider.min.js"></script>
+  <script src="static/js/index.js"></script>
+</head>
+<body>
+
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">3D MedDiffusion: A 3D Medical Diffusion Model for Controllable and High-quality Medical Image Generation</h1>
+            <div class="is-size-5 publication-authors">
+              <!-- Paper authors -->
+              <span class="author-block">Haoshen Wang<sup>1</sup>,</span>
+                <span class="author-block">
+                  <a href="https://zhentao-liu.github.io/" target="_blank">Zhentao Liu</a><sup>1</sup>,</span>
+                  <span class="author-block">Kaicong Sun<sup>1</sup>,</span>    
+                  <span class="author-block">Xiaodong Wang<sup>2</sup>,</span>
+                  <span class="author-block">
+                    <a href="https://idea.bme.shanghaitech.edu.cn/" target="_blank">Dinggang Shen</a><sup>1,3,4</sup>,
+                  </span>
+                    <span class="author-block">
+                      <a href="https://shanghaitech-impact.github.io/" target="_blank">Zhiming Cui</a><sup>1</sup>
+                    </span>
+                  </div>
+
+                  <div class="is-size-5 publication-authors">
+                    <span class="author-block">
+                      <sup>1</sup>School of Biomedical Engineering & State Key Laboratory of Advanced Medical Materials and Devices, ShanghaiTech University, Shanghai, China, <br>
+                      <sup>2</sup>Shanghai United Imaging Healthcare Co., Ltd., Shanghai, China, <br>
+                      <sup>3</sup>Shanghai Clinical Research and Trial Center, Shanghai, China, <br>
+                      <sup>4</sup>Shanghai United Imaging Intelligence Co., Ltd., Shanghai, China, <br>
+                    </span>
+                    <!-- <span class="eql-cntrb"><small><br><sup>*</sup>Indicates Equal Contribution</small></span> -->
+                  </div>
+
+                  <div class="column has-text-centered">
+                    <div class="publication-links">
+                         <!-- Arxiv PDF link -->
+                      <span class="link-block">
+                        <a href="https://arxiv.org/abs/2412.13059" target="_blank"
+                        class="external-link button is-normal is-rounded is-dark">
+                        <span class="icon">
+                          <i class="fas fa-file-pdf"></i>
+                        </span>
+                        <span>Paper</span>
+                      </a>
+                    </span>
+
+
+                  <!-- Github link -->
+                  <span class="link-block">
+                    <a href="https://github.com/ShanghaiTech-IMPACT/3D-MedDiffusion" target="_blank"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fab fa-github"></i>
+                    </span>
+                    <span>Code</span>
+                  </a>
+                </span>
+
+                <span class="link-block">
+                  <a href="https://huggingface.co/MMorss/3D-MedDiffusion" target="_blank"
+                  class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <img src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg" 
+                        alt="Hugging Face" >
+                  </span>
+                    <span>Model</span>
+                  </a>
+                </span>
+                
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Teaser video-->
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <img src="static/gifs/GIFs.gif" alt="Tree Animation" style="width: 100%; height: auto;">
+      <h2 class="subtitle has-text-centered">
+        <strong>Fig. 1.</strong> Unconditional generation results across multiple modalities (CT & MRI) and multiple regions (from head to leg).
+      </h2>
+    </div>
+  </div>
+</section>
+
+<!-- End teaser video -->
+
+<!-- Paper abstract -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            The generation of medical images presents significant challenges due to their high-resolution and three-dimensional nature. Existing methods often yield suboptimal performance in generating high-quality 3D medical images, and there is currently no universal generative framework for medical imaging.
+            In this paper, we introduce the 3D Medical Diffusion (3D MedDiffusion) model for controllable, high-quality 3D medical image generation. 
+            3D MedDiffusion incorporates a novel, highly efficient Patch-Volume Autoencoder that compresses medical images into latent space through patch-wise encoding and recovers back into image space through volume-wise decoding.
+            Additionally, we design a new noise estimator to capture both local details and global structure information during diffusion denoising process.
+            3D MedDiffusion can generate fine-detailed, high-resolution images (up to 512x512x512) and effectively adapt to various downstream tasks as it is trained on large-scale datasets covering CT and MRI modalities and different anatomical regions (from head to leg).
+            Experimental results demonstrate that 3D MedDiffusion surpasses state-of-the-art methods in generative quality and exhibits strong generalizability across tasks such as sparse-view CT reconstruction, fast MRI reconstruction, and data augmentation.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- End paper abstract -->
+
+
+
+
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">How It Works</h2>
+        <div class="content has-text-justified">
+          <p>
+            Our method introduces the <strong>Patch-Volume Autoencoder</strong>, which compresses images into a latent space in a patch-wise manner and decodes them volume-wise. In the latent space, we perform diffusion and denoising processes. The proposed noise estimator, <strong>BiFlowNet</strong>, denoises the latent representation through two branches: the intra-patch flow, which independently restores each latent patch, and the inter-patch flow, which reconstructs the entire latent volume cohesively.
+          </p>
+        </div>
+        
+        <!-- Image 1 with Description -->
+        <figure class="content has-text-centered">
+          <img src="static/images/pic1.jpg" alt="Pipeline Overview" style="max-width: 100%; height: auto;">
+          <figcaption><strong>Fig. 2.</strong> Patch-Volume Autoencoder. In the first stage, the model is trained solely to compress and reconstruct small patches from high-resolution volumes. In the second stage, all parameters are fixed except for the decoder, which is fine-tuned on high-resolution volumes to become a joint decoder.</figcaption>
+        </figure>
+        
+        <!-- Image 2 with Description -->
+        <figure class="content has-text-centered">
+          <img src="static/images/pic2.jpg" alt="Sample Outputs" style="max-width: 100%; height: auto;">
+          <figcaption><strong>Fig. 3.</strong> BiFlowNet noise estimator. 
+            The intra-patch flow focuses on denoising each patch and recovering fine-grained local details, while the inter-patch flow is designed to capture and reconstruct the global structures across the entire volume.</figcaption>
+        </figure>
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Results</h2>
+        
+        <!-- Image 1 with Description -->
+        <figure class="content has-text-centered">
+          <img src="static/images/pic3.jpg" alt="Pipeline Overview" style="max-width: 100%; height: auto;">
+          <figcaption><strong>Fig. 4.</strong> Qualitative comparison on unconditional MR image generation.</figcaption>
+        </figure>
+        
+        <!-- Image 2 with Description -->
+        <figure class="content has-text-centered">
+          <img src="static/images/pic4.jpg" alt="Sample Outputs" style="max-width: 100%; height: auto;">
+          <figcaption><strong>Fig. 5.</strong> Qualitative comparison on unconditional CT image generation.</figcaption>
+        </figure>
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3" style="margin-top: 0;">Downstream Tasks</h2>
+        <p style="margin: 0; text-align: left;">
+          The pre-trained 3D MedDiffusion can be seamlessly adapted to various downstream tasks by integrating it with ControlNet. By keeping the 3D MedDiffusion parameters fixed and applying high-efficient fine-tuning to ControlNet, the general-purpose generative 3D MedDiffusion is transformed into a task-specific 3D MedDiffusion.
+        </p>
+        
+        <!-- Image 1 with Description -->
+        <figure class="content has-text-centered" style="margin-top: 1rem;">
+          <img src="static/images/pic5.jpg" alt="Pipeline Overview" style="max-width: 100%; height: auto;">
+          <figcaption style="margin-top: 0.5rem;"><strong>Fig. 6.</strong>. Fine-tuning 3D MedDiffusion to adapt to downstream tasks.</figcaption>
+        </figure>
+        <figure class="content has-text-centered">
+          <img src="static/images/pic6.jpg" alt="Sample Outputs" style="max-width: 100%; height: auto;">
+          <figcaption><strong>Fig. 7.</strong> Qualitative results of sparse-view CT reconstruction.</figcaption>
+        </figure>
+
+        <figure class="content has-text-centered">
+          <img src="static/images/pic7.jpg" alt="Sample Outputs" style="max-width: 100%; height: auto;">
+          <figcaption><strong>Fig. 8.</strong> Qualitative results of fastMRI reconstruction.</figcaption>
+        </figure>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!--BibTex citation -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title">BibTeX</h2>
+      <pre><code>BibTex Code Here</code></pre>
+    </div>
+</section>
+<!--End BibTex citation -->
+
+
+  <!-- <footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+
+          <p>
+            This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a> which was adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+            You are free to borrow the source code of this website, we just ask that you link back to this page in the footer. <br> This website is licensed under a <a rel="license"  href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative
+            Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</footer> -->
+
+<!-- Statcounter tracking code -->
+  
+<!-- You can add a tracker to track page visits by creating an account at statcounter.com -->
+
+    <!-- End of Statcounter Code -->
+
+  </body>
+  </html>
