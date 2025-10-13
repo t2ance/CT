@@ -8,6 +8,8 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 
+from constants import HU_CLIP_RANGE, HU_CLIP_WIDTH
+
 
 class DistributedMetricsCalculator:
     """
@@ -20,7 +22,7 @@ class DistributedMetricsCalculator:
     Args:
         data_range: Expected data range of the input images
                    For normalized data [-1, 1], use 2.0
-                   For HU values [-1000, 1000], use 2000.0
+                   For HU values within HU_CLIP_RANGE (default (-200, 200)), use HU_CLIP_WIDTH (=400.0)
         compute_slice_wise: If True, compute per-slice and average
                            More robust for 3D volumes
 

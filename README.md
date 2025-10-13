@@ -68,7 +68,7 @@ These files were intentionally not recovered:
 ### 1. Metrics Data Range Bug (CRITICAL)
 **Issue:** SSIM > 0.99, PSNR > 60 dB, but visualizations showed poor quality
 
-**Root cause:** VQ-AE outputs normalized values in [-1, 1], not HU values [-1000, 1000]. The config used `data_range=2000.0`, causing inflated metrics.
+**Root cause:** VQ-AE outputs normalized values in [-1, 1], not HU values within the new default window (-200, 200). The config used `data_range=2000.0`, causing inflated metrics.
 
 **Fix applied:**
 ```yaml

@@ -347,7 +347,7 @@ def main():
         print("\nWandB initialized")
 
     # Initialize visualization and metrics
-    viz = CTVisualization(clip_range=(-1000, 1000))
+    viz = CTVisualization()
     metrics_calc = DistributedMetricsCalculator(data_range=2.0, compute_slice_wise=True)
 
     # Load input data (placeholder - adapt to your data loading)

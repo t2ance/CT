@@ -232,9 +232,7 @@ def validate_with_metrics(
         and config.get("training", {}).get("use_wandb", True)
     )
     visualizations = {}
-    viz_helper = (
-        CTVisualization(clip_range=(-1000, 1000)) if collect_visualizations else None
-    )
+    viz_helper = CTVisualization() if collect_visualizations else None
     viz_target = min(num_visualizations, num_samples) if collect_visualizations else 0
     viz_count = 0
 

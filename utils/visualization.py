@@ -2,12 +2,30 @@
 Visualization utilities for 3D CT super-resolution
 """
 
+import matplotlib.pyplot as plt
+import io
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from matplotlib import gridspec
-import io
 from PIL import Image
+from matplotlib import gridspec
+
+from constants import HU_CLIP_RANGE
+
+
+def apply_window(volume, window=None):
+    """
+    Clip HU values to the provided window and rescale to [0, 1] for display.
+    Accepts numpy arrays or torch tensors and always returns a numpy array.
+    """
+    if torch.is_tensor(volume):
+        volume = volume.detach().cpu().numpy()
+
+    if window is None:
+        window = HU_CLIP_RANGE
+
+    min_val, max_val = window
+    clipped = np.clip(volume, min_val, max_val)
+    return (clipped - min_val) / (max_val - min_val + 1e-8)
 
 
 class CTVisualization:
@@ -24,7 +42,7 @@ class CTVisualization:
 
     def __init__(
         self,
-        clip_range=(-1000, 1000),
+        clip_range=HU_CLIP_RANGE,
         display_range=None,
         percentile_window=(1.0, 99.0),
     ):

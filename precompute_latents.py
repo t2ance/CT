@@ -45,6 +45,7 @@ from tqdm.auto import tqdm
 import nibabel as nib
 
 from models.vqae_wrapper import FrozenVQAE
+from constants import HU_CLIP_RANGE
 
 
 def parse_args():
@@ -99,13 +100,21 @@ def parse_args():
         default=[200, 128, 128],
         help="Target CT shape (D H W) for resizing"
     )
+    parser.add_argument(
+        "--clip_range",
+        type=float,
+        nargs=2,
+        default=None,
+        metavar=("MIN_HU", "MAX_HU"),
+        help=f"HU clipping range before normalization (default: {HU_CLIP_RANGE})",
+    )
     return parser.parse_args()
 
 
 def load_ct_scan(
     ct_path: Path,
     target_shape: Tuple[int, int, int] = None,
-    clip_range: Tuple[float, float] = (-1000.0, 1000.0),
+    clip_range: Tuple[float, float] = HU_CLIP_RANGE,
 ) -> torch.Tensor:
     """
     Load and preprocess CT scan from NIfTI file.
@@ -229,6 +238,7 @@ def encode_and_save(
     target_shape: Tuple[int, int, int],
     device: torch.device,
     batch_size: int = 1,
+    clip_range: Tuple[float, float] = HU_CLIP_RANGE,
 ):
     """
     Encode CT pairs to latent space and save to disk.
@@ -256,8 +266,8 @@ def encode_and_save(
         # Load and preprocess batch
         for offset, (ld_path, hd_path) in enumerate(batch_pairs):
             try:
-                ld_ct = load_ct_scan(ld_path, target_shape).to(device)
-                hd_ct = load_ct_scan(hd_path, target_shape).to(device)
+                ld_ct = load_ct_scan(ld_path, target_shape, clip_range).to(device)
+                hd_ct = load_ct_scan(hd_path, target_shape, clip_range).to(device)
             except Exception as e:
                 print(f"\nError loading {ld_path.name}: {e}")
                 continue
@@ -361,8 +371,16 @@ def main():
     print(f"\n{'='*70}")
     print("Encoding training set...")
     print(f"{'='*70}")
+    clip_range = tuple(args.clip_range) if args.clip_range else HU_CLIP_RANGE
+
     encode_and_save(
-        train_pairs, vae, train_dir, tuple(args.target_shape), device, batch_size=args.batch_size
+        train_pairs,
+        vae,
+        train_dir,
+        tuple(args.target_shape),
+        device,
+        batch_size=args.batch_size,
+        clip_range=clip_range,
     )
 
     # Encode and save validation set
@@ -370,7 +388,13 @@ def main():
     print("Encoding validation set...")
     print(f"{'='*70}")
     encode_and_save(
-        val_pairs, vae, val_dir, tuple(args.target_shape), device, batch_size=args.batch_size
+        val_pairs,
+        vae,
+        val_dir,
+        tuple(args.target_shape),
+        device,
+        batch_size=args.batch_size,
+        clip_range=clip_range,
     )
 
     # Summary
