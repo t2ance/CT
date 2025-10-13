@@ -43,32 +43,50 @@ NUM_GPUS=$(nvidia-smi --list-gpus 2>/dev/null | wc -l)
 if [ ${NUM_GPUS} -eq 0 ]; then
     echo "ERROR: No CUDA GPUs detected!"
     exit 1
-elif [ ${NUM_GPUS} -eq 1 ]; then
+fi
+
+CMD=()
+
+if [ ${NUM_GPUS} -eq 1 ]; then
     echo "Single GPU detected, running without FSDP..."
-    python train_diffusion.py --config "${CONFIG_FILE}"
+    CMD=(python train_diffusion.py --config "${CONFIG_FILE}")
 else
     echo "Multiple GPUs detected, using FSDP..."
 
-    # Check if accelerate config exists
     if [ ! -f "${ACCELERATE_CONFIG}" ]; then
         echo "WARNING: Accelerate config not found: ${ACCELERATE_CONFIG}"
         echo "Using default accelerate settings..."
-        accelerate launch \
-            --multi_gpu \
-            --num_processes=${NUM_GPUS} \
-            --mixed_precision=fp16 \
-            train_diffusion.py \
-            --config "${CONFIG_FILE}"
+        CMD=(accelerate launch --multi_gpu --num_processes=${NUM_GPUS} --mixed_precision=fp16 train_diffusion.py --config "${CONFIG_FILE}")
     else
         echo "Using accelerate config: ${ACCELERATE_CONFIG}"
-        accelerate launch \
-            --config_file "${ACCELERATE_CONFIG}" \
-            train_diffusion.py \
-            --config "${CONFIG_FILE}"
+        CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" train_diffusion.py --config "${CONFIG_FILE}")
     fi
 fi
+# accelerate launch --config_file accelerate_config_fsdp.yaml train_diffusion.py --config config_diffusion.yaml
+
+if [ ${#CMD[@]} -eq 0 ]; then
+    echo "ERROR: No command constructed for training."
+    exit 1
+fi
+
+LOG_DIR="./log"
+mkdir -p "${LOG_DIR}"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+LOG_FILE="${LOG_DIR}/train_${TIMESTAMP}.log"
+PID_FILE="${LOG_DIR}/train_${TIMESTAMP}.pid"
 
 echo ""
+echo "Launching training with nohup..."
+echo "  Command : ${CMD[*]}"
+echo "  Log file: ${LOG_FILE}"
+
+nohup "${CMD[@]}" > "${LOG_FILE}" 2>&1 &
+PID=$!
+echo "${PID}" > "${PID_FILE}"
+
+echo "Training process started with PID ${PID} (saved to ${PID_FILE})."
+echo "View live logs with: tail -f ${LOG_FILE}"
+echo ""
 echo "========================================================================"
-echo "Training completed!"
+echo "Training launched in background."
 echo "========================================================================"

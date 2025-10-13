@@ -1,0 +1,2 @@
+Model config attention_levels=[1], num_blocks=5
+Input channels after concat: 16

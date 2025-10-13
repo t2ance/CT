@@ -41,7 +41,7 @@ import nibabel as nib
 from diffusers import DDIMScheduler
 
 # Custom modules
-from models.diffusion_unet import DiffusionUNet3D
+from model_factory import build_diffusion_model, DiffusionUNet3D
 from models.vqae_wrapper import FrozenVQAE
 from utils.visualization import CTVisualization
 from utils.metrics import DistributedMetricsCalculator
@@ -224,23 +224,8 @@ def load_model(
     """
     print("\nLoading diffusion model...")
 
-    # Create model architecture
     model_config = config['model']
-    in_channels = model_config['in_channels']
-    if model_config.get('concat_conditioning', True):
-        in_channels = in_channels * 2
-
-    model = DiffusionUNet3D(
-        in_channels=in_channels,
-        out_channels=model_config['out_channels'],
-        model_channels=model_config['model_channels'],
-        channel_mult=model_config['channel_mult'],
-        num_blocks=model_config['num_blocks'],
-        attention_levels=model_config['attention_levels'],
-        time_embed_dim=model_config['time_embed_dim'],
-        dropout=model_config.get('dropout', 0.0),
-        num_heads=model_config.get('num_heads', 8),
-    )
+    model = build_diffusion_model(model_config, verbose=True)
 
     # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location='cpu')

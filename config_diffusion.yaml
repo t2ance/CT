@@ -20,7 +20,7 @@ data:
 # Model architecture (3D UNet for diffusion)
 model:
   # Base model channels (scaled up from 64 for better performance)
-  model_channels: 256  # Was 64 (SCALED UP)
+  model_channels: 128  # Was 64 (SCALED UP)
 
   # Channel multipliers per resolution level
   channel_mult: [4, 4]  # Was [1, 2, 4, 4] (SCALED UP)
@@ -47,6 +47,9 @@ model:
   # Conditioning: concatenate LDCT latent to HDCT latent
   concat_conditioning: true
 
+  # Optional FlashAttention acceleration (requires CUDA + flash-attn package)
+  use_flash_attention: true
+
 # Diffusion scheduler
 scheduler:
   # Training timesteps (T in DDPM paper)
@@ -65,7 +68,7 @@ scheduler:
 
 # Training configuration
 training:
-  batch_size: 32
+  batch_size: 48
   # batch_size: 4
   seed: 42
 
