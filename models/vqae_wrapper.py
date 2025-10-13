@@ -12,8 +12,11 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 
-# Add 3D-MedDiffusion to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / '3D-MedDiffusion'))
+# Add vendored 3D-MedDiffusion subtree to module path
+vendored_repo = Path(__file__).resolve().parents[1] / 'third_party' / '3d_meddiffusion'
+vendored_repo_str = str(vendored_repo)
+if vendored_repo_str not in sys.path:
+    sys.path.insert(0, vendored_repo_str)
 
 from AutoEncoder.model.PatchVolume import patchvolumeAE
 
