@@ -14,7 +14,7 @@ compute_environment: LOCAL_MACHINE
 distributed_type: FSDP
 
 # Number of GPUs to use
-num_processes: 4  # Change to match your available GPUs
+num_processes: 2  # Change to match your available GPUs
 
 # Device to use
 machine_rank: 0

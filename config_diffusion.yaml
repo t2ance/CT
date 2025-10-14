@@ -84,13 +84,13 @@ training:
   # Batch sizes
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
-  train_batch_size: 96    # Reduced for larger model (adjust based on GPU memory)
+  train_batch_size: 64    # Reduced for larger model (adjust based on GPU memory)
   eval_batch_size: 8      # Reduced for larger model
   seed: 42
 
   # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
   # gradient_accumulation_steps: 1  # Previous setting
-  gradient_accumulation_steps: 2    # Increase for larger effective batch size
+  gradient_accumulation_steps: 1    # Increase for larger effective batch size
 
   num_epochs: 5000
 
@@ -101,7 +101,7 @@ training:
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
   # weight_decay: 0.03     # Previous setting
-  weight_decay: 0.01       # Reduced weight decay (model has dropout now)
+  weight_decay: 0.05       # Reduced weight decay (model has dropout now)
 
   # Learning rate scheduler
   lr_scheduler_type: "linear" # 'linear' with warmup
