@@ -20,38 +20,25 @@ data:
 # Model architecture (3D UNet for diffusion)
 model:
   # Base model channels (scaled up from 64 for better performance)
-  # model_channels: 64   # Original baseline
-  # model_channels: 128  # Previous scaling (SCALED UP v1)
-  model_channels: 192    # Further scaled up for more capacity
+  model_channels: 128  # Was 64 (SCALED UP)
 
   # Channel multipliers per resolution level
-  # channel_mult: [1, 2, 4, 4]  # Original baseline
-  # channel_mult: [4, 4]         # Previous scaling (SCALED UP v1)
-  channel_mult: [1, 2, 4, 8]     # Deeper architecture with more resolution levels
+  channel_mult: [4, 4]  # Was [1, 2, 4, 4] (SCALED UP)
 
   # Number of ResNet blocks per level
-  # num_blocks: 2  # Original baseline
-  # num_blocks: 5  # Previous scaling (SCALED UP v1)
-  num_blocks: 3    # Balanced depth per level (total blocks = 3 * 4 levels = 12)
+  num_blocks: 5  # Was 2 (SCALED UP)
 
   # Which levels get attention (0=highest res, 3=lowest res)
-  # attention_levels: [2, 3]  # Original baseline
-  # attention_levels: [1]      # Previous scaling (MORE ATTENTION v1)
-  attention_levels: [1, 2, 3]  # Multi-scale attention at multiple levels
+  attention_levels: [1]  # Was [2, 3] (MORE ATTENTION)
 
   # Time embedding dimension
-  # time_embed_dim: 256  # Original baseline
-  # time_embed_dim: 512  # Previous scaling (SCALED UP v1)
-  time_embed_dim: 768    # Larger time embedding for better temporal modeling
+  time_embed_dim: 512  # Was 256 (SCALED UP)
 
   # Dropout for regularization
-  # dropout: 0.0  # Original baseline
-  # dropout: 0    # Previous scaling (ADDED DROPOUT v1)
-  dropout: 0.1    # Light dropout for regularization
+  dropout: 0  # Was 0.0 (ADDED DROPOUT)
 
   # Number of attention heads
-  # num_heads: 8   # Previous scaling
-  num_heads: 12    # More attention heads for richer representations
+  num_heads: 8
 
   # Input/output channels (latent space)
   in_channels: 8  # LDCT latent
@@ -81,33 +68,25 @@ scheduler:
 
 # Training configuration
 training:
-  # Batch sizes
-  # train_batch_size: 48  # Previous setting
-  # eval_batch_size: 8    # Previous setting
-  train_batch_size: 96    # Reduced for larger model (adjust based on GPU memory)
-  eval_batch_size: 8      # Reduced for larger model
+  train_batch_size: 48
+  eval_batch_size: 8
   seed: 42
 
-  # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
-  # gradient_accumulation_steps: 1  # Previous setting
-  gradient_accumulation_steps: 2    # Increase for larger effective batch size
+  gradient_accumulation_steps: 1
 
   num_epochs: 5000
 
   # Optimizer
-  # learning_rate: 5.0e-5  # Previous setting
-  learning_rate: 3.0e-5    # Slightly lower LR for larger model stability
+  learning_rate: 5.0e-5
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
-  # weight_decay: 0.03     # Previous setting
-  weight_decay: 0.01       # Reduced weight decay (model has dropout now)
+  weight_decay: 0.03
 
   # Learning rate scheduler
   lr_scheduler_type: "linear" # 'linear' with warmup
-  # warmup_ratio: 0.06     # Previous setting (6% of total steps)
-  warmup_ratio: 0.08       # Longer warmup for larger model (8% of total steps)
-  lr_min: 0.0              # Minimum LR after decay
+  warmup_ratio: 0.06 # 6% of total steps for warmup
+  lr_min: 0.0 # Minimum LR after decay
 
   # Mixed precision training
   mixed_precision: "bf16" # 'fp16', 'bf16', or 'no'
@@ -128,7 +107,7 @@ training:
   wandb_project: "ct-diffusion"
   wandb_entity: null # Set to your wandb username
   wandb_run_name: null # Auto-generated if null
-  wandb_tags: ["latent-diffusion", "ct", "3d", "scaled-up"]
+  wandb_tags: ["latent-diffusion", "ct", "3d"]
   
   
 
@@ -170,11 +149,3 @@ output:
   checkpoint_dir: "./outputs/checkpoints"
   log_dir: "./outputs/logs"
   visualization_dir: "./outputs/visualizations"
-
-#   1. model_channels: 128 → 192 (+50% more base channels)
-  # 2. channel_mult: [4, 4] → [1, 2, 4, 8] (4 resolution levels instead of 2, deeper architecture)
-  # 3. num_blocks: 5 → 3 (more balanced, but total blocks = 3 × 4 levels = 12 blocks)
-  # 4. attention_levels: [1] → [1, 2, 3] (multi-scale attention at 3 levels)
-  # 5. time_embed_dim: 512 → 768 (+50% larger time embeddings)
-  # 6. dropout: 0 → 0.1 (added regularization)
-  # 7. num_heads: 8 → 12 (+50% more attention heads)

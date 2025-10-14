@@ -499,9 +499,11 @@ class DiffusionUNet3D(nn.Module):
                 block_modules = self.down_blocks[block_idx]
 
                 for module in block_modules:
-                    if isinstance(module, ResBlock3D):
+                    # Check if module needs time_emb by checking for time_emb_proj attribute
+                    # This is more robust than isinstance checks with FSDP wrapping
+                    if hasattr(module, 'time_emb_proj'):
                         h = module(h, time_emb)
-                    else:  # AttentionBlock3D
+                    else:  # AttentionBlock3D or FlashAttentionBlock3D
                         h = module(h)
 
                 block_idx += 1
@@ -539,9 +541,11 @@ class DiffusionUNet3D(nn.Module):
                 block_modules = self.up_blocks[block_idx]
 
                 for module in block_modules:
-                    if isinstance(module, ResBlock3D):
+                    # Check if module needs time_emb by checking for time_emb_proj attribute
+                    # This is more robust than isinstance checks with FSDP wrapping
+                    if hasattr(module, 'time_emb_proj'):
                         h = module(h, time_emb)
-                    else:  # AttentionBlock3D
+                    else:  # AttentionBlock3D or FlashAttentionBlock3D
                         h = module(h)
 
                 block_idx += 1

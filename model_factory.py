@@ -10,6 +10,8 @@ from typing import Any, Dict
 from research.flash_attention_v2 import flash_attention_plugin as flash_plugin
 
 DiffusionUNet3D = flash_plugin.DiffusionUNet3D
+ResBlock3D = flash_plugin.ResBlock3D
+AttentionBlock3D = flash_plugin.AttentionBlock3D
 apply_flash_attention = flash_plugin.apply_flash_attention
 
 
@@ -53,4 +55,4 @@ def build_diffusion_model(model_config: Dict[str, Any], *, verbose: bool = True)
     return model
 
 
-__all__ = ["DiffusionUNet3D", "build_diffusion_model"]
+__all__ = ["DiffusionUNet3D", "ResBlock3D", "AttentionBlock3D", "build_diffusion_model"]

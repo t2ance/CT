@@ -28,18 +28,18 @@ except ImportError:  # pragma: no cover - handled in _can_use_flash path
     flash_attn_qkvpacked_func = None  # type: ignore
 
 
-def _load_attention_types() -> Tuple[type, type]:
-    """Load DiffusionUNet3D/AttentionBlock3D without importing models package."""
+def _load_attention_types() -> Tuple[type, type, type]:
+    """Load DiffusionUNet3D/AttentionBlock3D/ResBlock3D without importing models package."""
     repo_root = Path(__file__).resolve().parents[2]
     module_path = repo_root / "models" / "diffusion_unet.py"
     spec = importlib.util.spec_from_file_location("diffusion_unet_module", module_path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)  # type: ignore[attr-defined]
-    return module.DiffusionUNet3D, module.AttentionBlock3D
+    return module.DiffusionUNet3D, module.AttentionBlock3D, module.ResBlock3D
 
 
-DiffusionUNet3D, AttentionBlock3D = _load_attention_types()
+DiffusionUNet3D, AttentionBlock3D, ResBlock3D = _load_attention_types()
 
 
 class FlashAttentionBlock3D(nn.Module):
@@ -161,4 +161,4 @@ def apply_flash_attention(model: nn.Module, verbose: bool = True) -> int:
     return replaced
 
 
-__all__ = ["FlashAttentionBlock3D", "apply_flash_attention"]
+__all__ = ["DiffusionUNet3D", "ResBlock3D", "AttentionBlock3D", "FlashAttentionBlock3D", "apply_flash_attention"]

@@ -50,7 +50,7 @@ import wandb
 # Custom modules
 from model_factory import build_diffusion_model, DiffusionUNet3D
 from models.vqae_wrapper import FrozenVQAE
-from data.latent_dataset import LatentCTDataset, create_latent_dataloaders
+from data.latent_dataset import LatentCTDataset, create_latent_dataloaders, create_train_subset_dataloader
 from utils.metrics import DistributedMetricsCalculator
 from utils.visualization import CTVisualization
 
@@ -598,6 +598,28 @@ def train(config: dict, args):
         accelerator.print(f"  Eval batch size: {eval_batch_size}")
         accelerator.print(f"  Train batches: {len(train_loader)}")
 
+    # Create train subset dataloader for validation metrics
+    validation_config = config.get("validation", {})
+    num_val_samples = validation_config.get("num_samples", 4)
+    compute_train_metrics = validation_config.get("compute_train_metrics", True)
+
+    train_subset_loader = None
+    if compute_train_metrics:
+        if accelerator.is_main_process:
+            accelerator.print(f"\nCreating train subset for validation metrics...")
+
+        train_subset_loader = create_train_subset_dataloader(
+            latent_dir=data_config["latent_cache_dir"],
+            num_samples=num_val_samples,
+            batch_size=eval_batch_size,
+            num_workers=training_config.get("num_workers", 4),
+            normalize_latents=data_config.get("normalize_latents", False),
+            pin_memory=True,
+        )
+
+        if accelerator.is_main_process:
+            accelerator.print(f"  Train subset samples: {len(train_subset_loader.dataset)}")
+
     # Load VQ-AE for visualization and metrics
     # Load on ALL processes if distributed evaluation is enabled
     vae = None
@@ -696,9 +718,14 @@ def train(config: dict, args):
             accelerator.print(f"\nLR Scheduler: None (constant LR)")
 
     # Prepare for distributed training
-    model, optimizer, train_loader, val_loader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_loader, val_loader, lr_scheduler
-    )
+    if train_subset_loader is not None:
+        model, optimizer, train_loader, val_loader, train_subset_loader, lr_scheduler = accelerator.prepare(
+            model, optimizer, train_loader, val_loader, train_subset_loader, lr_scheduler
+        )
+    else:
+        model, optimizer, train_loader, val_loader, lr_scheduler = accelerator.prepare(
+            model, optimizer, train_loader, val_loader, lr_scheduler
+        )
 
     # Resume from checkpoint if specified
     start_epoch = 0
@@ -810,12 +837,13 @@ def train(config: dict, args):
 
                 # Full validation with SSIM/PSNR metrics (less frequent)
                 if enable_full_validation and (global_step % full_val_every == 0):
+                    # Validation set
                     if accelerator.is_main_process:
                         accelerator.print(
-                            f"\nRunning full validation with metrics ({num_val_samples} samples)..."
+                            f"\nRunning full validation on VAL set ({num_val_samples} samples)..."
                         )
 
-                    metrics, viz_dict = validate_with_metrics(
+                    val_metrics, val_viz_dict = validate_with_metrics(
                         model,
                         val_loader,
                         vae,
@@ -825,25 +853,70 @@ def train(config: dict, args):
                     )
 
                     if accelerator.is_main_process:
-                        if viz_dict:
-                            accelerator.log(viz_dict, step=global_step)
-                            accelerator.print("Visualizations generated.")
+                        if val_viz_dict:
+                            # Log with val/ prefix
+                            val_viz_log = {f"{k}": v for k, v in val_viz_dict.items()}
+                            accelerator.log(val_viz_log, step=global_step)
+                            accelerator.print("Val visualizations generated.")
 
-                        if metrics:
+                        if val_metrics:
                             log_dict = {
-                                f"val/metrics/{k}": v for k, v in metrics.items()
+                                f"val/metrics/{k}": v for k, v in val_metrics.items()
                             }
                             accelerator.log(log_dict, step=global_step)
 
                             accelerator.print(
-                                f"  SSIM: {metrics.get('ssim_mean', 0):.4f} ± {metrics.get('ssim_std', 0):.4f}"
+                                f"  Val SSIM: {val_metrics.get('ssim', 0):.4f}"
                             )
                             accelerator.print(
-                                f"  PSNR: {metrics.get('psnr_mean', 0):.2f} ± {metrics.get('psnr_std', 0):.2f} dB"
+                                f"  Val PSNR: {val_metrics.get('psnr', 0):.2f} dB"
                             )
                             accelerator.print(
-                                f"  Samples evaluated: {metrics.get('num_samples', 0)}"
+                                f"  Samples evaluated: {val_metrics.get('num_samples', 0)}"
                             )
+
+                    # Train subset (if enabled)
+                    if compute_train_metrics and train_subset_loader is not None:
+                        if accelerator.is_main_process:
+                            accelerator.print(
+                                f"\nRunning full validation on TRAIN subset ({num_val_samples} samples)..."
+                            )
+
+                        train_metrics, train_viz_dict = validate_with_metrics(
+                            model,
+                            train_subset_loader,
+                            vae,
+                            config,
+                            accelerator,
+                            num_samples=num_val_samples,
+                        )
+
+                        if accelerator.is_main_process:
+                            if train_viz_dict:
+                                # Log with train/ prefix
+                                train_viz_log = {
+                                    f"train/{k.split('/')[-1]}": v
+                                    for k, v in train_viz_dict.items()
+                                }
+                                accelerator.log(train_viz_log, step=global_step)
+                                accelerator.print("Train visualizations generated.")
+
+                            if train_metrics:
+                                log_dict = {
+                                    f"train/metrics/{k}": v
+                                    for k, v in train_metrics.items()
+                                }
+                                accelerator.log(log_dict, step=global_step)
+
+                                accelerator.print(
+                                    f"  Train SSIM: {train_metrics.get('ssim', 0):.4f}"
+                                )
+                                accelerator.print(
+                                    f"  Train PSNR: {train_metrics.get('psnr', 0):.2f} dB"
+                                )
+                                accelerator.print(
+                                    f"  Samples evaluated: {train_metrics.get('num_samples', 0)}"
+                                )
 
             # Save checkpoint
             if (
