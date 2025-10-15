@@ -8,7 +8,7 @@ data:
   latent_cache_dir: "./latents_cache"
 
   # VQ-AE checkpoint for decoding (visualization & metrics)
-  vae_checkpoint: "/data2/peijia/projects/BioAgent/3D-MedDiffusion/checkpoints/PatchVolume_8x_s2.ckpt"
+  vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/PatchVolume_8x_s2.ckpt"
 
   # Latent normalization (keep False - latents are ~[-30, 30])
   normalize_latents: false
@@ -101,7 +101,7 @@ training:
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
   # weight_decay: 0.03     # Previous setting
-  weight_decay: 0.05       # Reduced weight decay (model has dropout now)
+  weight_decay: 0.2       # Reduced weight decay (model has dropout now)
 
   # Learning rate scheduler
   lr_scheduler_type: "linear" # 'linear' with warmup

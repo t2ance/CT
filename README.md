@@ -239,7 +239,7 @@ ct/
 
 1. **VQ-AE Checkpoint Required:**
    ```
-   /data2/peijia/projects/BioAgent/3D-MedDiffusion/checkpoints/PatchVolume_8x_s2.ckpt
+   ~/projects/BioAgent/3D-MedDiffusion/checkpoints/PatchVolume_8x_s2.ckpt
    ```
    Ensure this exists and is accessible.
 

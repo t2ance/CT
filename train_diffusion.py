@@ -662,6 +662,7 @@ def train(config: dict, args):
         eps=training_config.get("adam_epsilon", 1e-8),
         weight_decay=training_config.get("weight_decay", 0.01),
     )
+    print('wegiht decay: ', training_config.get("weight_decay", 0.01))
 
     # Calculate total training steps
     num_epochs = training_config["num_epochs"]
