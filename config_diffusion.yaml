@@ -8,7 +8,7 @@ data:
   latent_cache_dir: "./latents_cache"
 
   # VQ-AE checkpoint for decoding (visualization & metrics)
-  vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/PatchVolume_8x_s2.ckpt"
+  vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
 
   # Latent normalization (keep False - latents are ~[-30, 30])
   normalize_latents: false
