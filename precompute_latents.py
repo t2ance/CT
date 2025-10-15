@@ -115,6 +115,7 @@ def load_ct_scan(
     ct_path: Path,
     target_shape: Tuple[int, int, int] = None,
     clip_range: Tuple[float, float] = HU_CLIP_RANGE,
+    device: torch.device = None,
 ) -> torch.Tensor:
     """
     Load and preprocess CT scan from NIfTI file.
@@ -122,9 +123,11 @@ def load_ct_scan(
     Args:
         ct_path: Path to .nii.gz file
         target_shape: Target shape (D, H, W) for resizing
+        clip_range: HU clipping range before normalization
+        device: Device to perform resizing/normalization on
 
     Returns:
-        ct_tensor: Preprocessed CT scan [1, 1, D, H, W]
+        ct_tensor: Preprocessed CT scan [1, 1, D, H, W] on the requested device
     """
     # Load NIfTI file
     nifti = nib.load(str(ct_path))
@@ -136,6 +139,9 @@ def load_ct_scan(
     # Add batch & channel dims and reorder to [B, C, D, H, W]
     ct_tensor = ct_tensor.unsqueeze(0).unsqueeze(0)  # [1, 1, H, W, D]
     ct_tensor = ct_tensor.permute(0, 1, 4, 2, 3).contiguous()  # [1, 1, D, H, W]
+
+    if device is not None:
+        ct_tensor = ct_tensor.to(device)
 
     if target_shape is not None:
         target_depth, target_height, target_width = target_shape
@@ -266,8 +272,8 @@ def encode_and_save(
         # Load and preprocess batch
         for offset, (ld_path, hd_path) in enumerate(batch_pairs):
             try:
-                ld_ct = load_ct_scan(ld_path, target_shape, clip_range).to(device)
-                hd_ct = load_ct_scan(hd_path, target_shape, clip_range).to(device)
+                ld_ct = load_ct_scan(ld_path, target_shape, clip_range, device)
+                hd_ct = load_ct_scan(hd_path, target_shape, clip_range, device)
             except Exception as e:
                 print(f"\nError loading {ld_path.name}: {e}")
                 continue
@@ -354,7 +360,7 @@ def main():
 
     # Test encoding one sample to get latent shape
     print("\nTesting encoding...")
-    test_ct = load_ct_scan(train_pairs[0][0], tuple(args.target_shape)).to(device)
+    test_ct = load_ct_scan(train_pairs[0][0], tuple(args.target_shape), device=device)
     test_latent = vae.encode(test_ct)
     print(f"  CT shape: {test_ct.shape}")
     print(f"  Latent shape: {test_latent.shape}")

@@ -92,7 +92,7 @@ python precompute_latents.py \
  --device cuda \
  --config config_diffusion.yaml \
  --target_shape 200 512 512 \
- --batch_size 4
+ --batch_size 1
 
 echo ""
 echo "========================================================================"

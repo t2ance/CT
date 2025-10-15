@@ -47,7 +47,7 @@ model:
   # Dropout for regularization
   # dropout: 0.0  # Original baseline
   # dropout: 0    # Previous scaling (ADDED DROPOUT v1)
-  dropout: 0.1    # Light dropout for regularization
+  dropout: 0.3    # Light dropout for regularization
 
   # Number of attention heads
   # num_heads: 8   # Previous scaling
@@ -116,7 +116,7 @@ training:
   max_grad_norm: 1.0
 
   # Validation and checkpointing
-  save_every: 400 # Save checkpoint every N steps
+  save_every: 10000 # Save checkpoint every N steps
   val_every: 400 # Lightweight validation (MSE only)
 
   # Number of dataloader workers
