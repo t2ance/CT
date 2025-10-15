@@ -101,7 +101,7 @@ training:
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
   # weight_decay: 0.03     # Previous setting
-  weight_decay: 0.2       # Reduced weight decay (model has dropout now)
+  weight_decay: 0.5       # Reduced weight decay (model has dropout now)
 
   # Learning rate scheduler
   lr_scheduler_type: "linear" # 'linear' with warmup

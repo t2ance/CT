@@ -76,13 +76,22 @@ echo ""
 #     --device cuda \
 #     --batch_size 32
 
+# python precompute_latents.py \
+#  --data_dir /data1/peijia/ct/processed/ct_pairs \
+#  --latent_cache_dir latents_cache_v2 \
+#  --vae_checkpoint ~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt \
+#  --device cuda \
+#  --config config_diffusion.yaml \
+#  --target_shape 200 256 256 \
+#  --batch_size 4
+
 python precompute_latents.py \
  --data_dir /data1/peijia/ct/processed/ct_pairs \
- --latent_cache_dir latents_cache_v2 \
+ --latent_cache_dir latents_cache_v3 \
  --vae_checkpoint ~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt \
  --device cuda \
  --config config_diffusion.yaml \
- --target_shape 200 256 256 \
+ --target_shape 200 512 512 \
  --batch_size 4
 
 echo ""
