@@ -1,0 +1,69 @@
+compute_environment: LOCAL_MACHINE
+
+# Distributed training type
+distributed_type: FSDP
+
+# Number of GPUs to use
+num_processes: 1  # Change to match your available GPUs
+
+# Device to use
+machine_rank: 0
+main_process_ip: null
+main_process_port: null
+main_training_function: main
+mixed_precision: fp16  # or 'bf16' for A100, 'no' for full precision
+
+# FSDP configuration
+fsdp_config:
+  # Sharding strategy
+  # - FULL_SHARD: Shard parameters, gradients, and optimizer states (most memory efficient)
+  # - SHARD_GRAD_OP: Shard gradients and optimizer states only
+  # - NO_SHARD: No sharding (equivalent to DDP)
+  fsdp_sharding_strategy: FULL_SHARD
+
+  # Backward prefetch policy (improves performance)
+  # - BACKWARD_PRE: Prefetch next layer during backward
+  # - BACKWARD_POST: Prefetch after current layer backward
+  fsdp_backward_prefetch_policy: BACKWARD_PRE
+
+  # Auto-wrap policy for model sharding
+  # - SIZE_BASED_WRAP: Wrap layers with >N parameters
+  # - TRANSFORMER_BASED_WRAP: Wrap specific layer types (requires layer class names)
+  fsdp_auto_wrap_policy: SIZE_BASED_WRAP
+
+  # Minimum number of parameters for a layer to be wrapped (SIZE_BASED_WRAP only)
+  # Wrap layers with >1M parameters
+  fsdp_min_num_params: 1000000
+
+  # Use original parameter behavior (recommended for most models)
+  fsdp_use_orig_params: true
+
+  # CPU offload (trades memory for speed - usually not needed with FSDP)
+  fsdp_offload_params: false
+
+  # State dict type for checkpointing
+  # - FULL_STATE_DICT: Single file, compatible with non-FSDP loading
+  # - SHARDED_STATE_DICT: Multiple files, faster for large models
+  fsdp_state_dict_type: FULL_STATE_DICT
+
+# Downcast BF16 precision (only relevant for bf16 mixed precision)
+downcast_bf16: 'no'
+
+# Use CPU for reduce-scatter (can help with memory)
+rdzv_backend: static
+
+# Whether distributed setup uses same file system
+same_network: true
+
+# Torch dynamo backend (experimental optimization)
+dynamo_backend: 'NO'
+
+# DeepSpeed config (not used with FSDP)
+deepspeed_config: {}
+
+# Notes:
+# 1. FSDP is most effective for models >100M parameters
+# 2. SIZE_BASED_WRAP is more robust than TRANSFORMER_BASED_WRAP
+# 3. FULL_SHARD provides best memory savings
+# 4. Increase num_processes to match your GPU count
+# 5. If you see OOM errors, try reducing batch size or model size first

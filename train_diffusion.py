@@ -166,6 +166,7 @@ def validate_with_metrics(
     config: dict,
     accelerator: Accelerator,
     num_samples: int = 4,
+    spatial_chunk_size: int = 32,
 ) -> dict:
     """
     Full validation with SSIM and PSNR metrics.
@@ -278,11 +279,13 @@ def validate_with_metrics(
                 noise_pred, t, hd_latent_pred
             ).prev_sample
 
-        # Decode latents to CT space
-        pred_ct = vae.decode(hd_latent_pred)  # [B, 1, D, H, W]
-        gt_ct = vae.decode(hd_latent_gt)
+        # Decode latents to CT space with spatial chunking to save memory
+        # Use 32x32x32 latent chunks (256x256x256 in image space) to avoid 18GB allocations
+        # This processes ~2-3GB per chunk instead of 18GB for full volume
+        pred_ct = vae.decode(hd_latent_pred, micro_batch_size=1, spatial_chunk_size=spatial_chunk_size)  # [B, 1, D, H, W]
+        gt_ct = vae.decode(hd_latent_gt, micro_batch_size=1, spatial_chunk_size=spatial_chunk_size)
         ld_ct = (
-            vae.decode(ld_latent)
+            vae.decode(ld_latent, micro_batch_size=1, spatial_chunk_size=spatial_chunk_size)
             if collect_visualizations and viz_count < viz_target
             else None
         )
@@ -330,9 +333,6 @@ def validate_with_metrics(
 
     # Gather metrics from all processes
 
-    # Gather metrics from all processes
-    # NOTE: accelerator.gather() concatenates tensors from all processes
-    # If a process has no metrics (empty tensor), it still participates in gather
     all_ssim = accelerator.gather(local_ssim)
     all_psnr = accelerator.gather(local_psnr)
 
@@ -825,7 +825,6 @@ def train(config: dict, args):
             if (
                 global_step % val_every == 0
                 and global_step > 0
-                and accelerator.sync_gradients
             ):
                 # Lightweight validation (always)
                 if accelerator.is_main_process:
@@ -851,6 +850,7 @@ def train(config: dict, args):
                         config,
                         accelerator,
                         num_samples=num_val_samples,
+                        spatial_chunk_size=validation_config.get("spatial_chunk_size", 32),
                     )
 
                     if accelerator.is_main_process:
@@ -978,6 +978,7 @@ def main():
     """Main entry point"""
     args = parse_args()
     config = load_config(args.config)
+    print(config)
     train(config, args)
 
 

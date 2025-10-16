@@ -85,7 +85,7 @@ training:
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
   train_batch_size: 8    # Reduced for larger model (adjust based on GPU memory)
-  eval_batch_size: 1      # Reduced for larger model
+  eval_batch_size: 4      # Reduced for larger model
   seed: 42
 
   # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
@@ -116,8 +116,8 @@ training:
   max_grad_norm: 1.0
 
   # Validation and checkpointing
-  save_every: 10000 # Save checkpoint every N steps
-  val_every: 400 # Lightweight validation (MSE only)
+  save_every: 100000 # Save checkpoint every N steps
+  val_every: 500 # Lightweight validation (MSE only)
 
   # Number of dataloader workers
   num_workers: 8
@@ -141,7 +141,7 @@ validation:
   # Full validation settings
   compute_train_metrics: true  # Set to false to disable train subset evaluation
   enable_full_validation: true # Enable SSIM/PSNR metrics
-  full_val_every: 400 # Run full validation every N steps (slower)
+  full_val_every: 500 # Run full validation every N steps (slower)
   num_samples: 32 # Number of validation samples to evaluate (4-8 recommended)
 
   num_visualizations: 1
@@ -170,11 +170,3 @@ output:
   checkpoint_dir: "./outputs/checkpoints"
   log_dir: "./outputs/logs"
   visualization_dir: "./outputs/visualizations"
-
-#   1. model_channels: 128 → 192 (+50% more base channels)
-  # 2. channel_mult: [4, 4] → [1, 2, 4, 8] (4 resolution levels instead of 2, deeper architecture)
-  # 3. num_blocks: 5 → 3 (more balanced, but total blocks = 3 × 4 levels = 12 blocks)
-  # 4. attention_levels: [1] → [1, 2, 3] (multi-scale attention at 3 levels)
-  # 5. time_embed_dim: 512 → 768 (+50% larger time embeddings)
-  # 6. dropout: 0 → 0.1 (added regularization)
-  # 7. num_heads: 8 → 12 (+50% more attention heads)

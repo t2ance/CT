@@ -85,7 +85,7 @@ training:
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
   train_batch_size: 1    # Reduced for larger model (adjust based on GPU memory)
-  eval_batch_size: 1      # Reduced for larger model
+  eval_batch_size: 4      # Reduced for larger model
   seed: 42
 
   # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
@@ -116,8 +116,8 @@ training:
   max_grad_norm: 1.0
 
   # Validation and checkpointing
-  save_every: 10000 # Save checkpoint every N steps
-  val_every: 400 # Lightweight validation (MSE only)
+  save_every: 100000 # Save checkpoint every N steps
+  val_every: 500 # Lightweight validation (MSE only)
 
   # Number of dataloader workers
   num_workers: 8
@@ -141,8 +141,9 @@ validation:
   # Full validation settings
   compute_train_metrics: true  # Set to false to disable train subset evaluation
   enable_full_validation: true # Enable SSIM/PSNR metrics
-  full_val_every: 400 # Run full validation every N steps (slower)
-  num_samples: 32 # Number of validation samples to evaluate (4-8 recommended)
+  full_val_every: 500 # Run full validation every N steps (slower)
+  num_samples: 32 # Number of validation samples to evaluate (reduced from 32 to avoid OOM)
+  spatial_chunk_size: 8 # Size of spatial chunks in latent space (e.g., 8 means 8x8x8 latent chunks)
 
   num_visualizations: 1
 

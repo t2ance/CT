@@ -117,20 +117,31 @@ class FrozenVQAE(nn.Module):
         return z_q
 
     @torch.no_grad()
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
+    def decode(self, z: torch.Tensor, micro_batch_size: int = 1,
+               offload_to_cpu: bool = False, spatial_chunk_size: Optional[int] = None) -> torch.Tensor:
         """
-        Decode latent embeddings to CT volume.
+        Decode latent embeddings to CT volume with spatial chunking to avoid OOM.
 
         Args:
             z: Latent embeddings [B, Cℓ, D', H', W']
+            micro_batch_size: Process this many samples at a time (default: 1)
+            offload_to_cpu: If True, keep model on CPU and only move to GPU during decode (default: False)
+            spatial_chunk_size: Size of spatial chunks in latent space (e.g., 8 means 8x8x8 latent chunks).
+                               If None, uses the model's built-in sliding window decoder.
+                               Recommended: 32 for 512x512x512 volumes (avoids 18GB allocations)
 
         Returns:
             x_recon: Reconstructed CT volume [B, 1, D, H, W]
                      where D=D'*8, H=H'*8, W=W'*8 (approximately)
 
-        Note:
-            Output may differ by 1 slice/pixel from original input due to
-            compression artifacts.
+        Memory-saving strategies:
+            1. spatial_chunk_size=32: Split volume into 32x32x32 latent chunks (~2-3GB per chunk)
+            2. micro_batch_size=1: Process one sample at a time
+            3. offload_to_cpu=True: Keep model on CPU (slowest, but safest)
+
+        Example:
+            # For 512x512x512 CT (64x64x64 latent), use 32x32x32 chunks
+            >>> ct_recon = vae.decode(latent, spatial_chunk_size=32)
         """
         if z.dim() != 5:
             raise ValueError(f"Expected 5D latent [B,C,D,H,W], got {z.shape}")
@@ -139,13 +150,134 @@ class FrozenVQAE(nn.Module):
                 f"Expected {self.latent_channels} channels, got {z.shape[1]}"
             )
 
-        # Ensure on correct device
-        z = z.to(self.device)
+        original_device = z.device
+        batch_size = z.shape[0]
 
-        # Decode to image space
-        x_recon = self.model.decode(z)
+        # Offload model to CPU if requested
+        if offload_to_cpu and self.device != torch.device('cpu'):
+            self.model.to('cpu')
+            torch.cuda.empty_cache()
+
+        # Use spatial chunking if requested (memory-efficient for large volumes)
+        if spatial_chunk_size is not None:
+            return self._decode_with_spatial_chunking(
+                z, spatial_chunk_size, micro_batch_size, original_device
+            )
+
+        # Fallback: regular micro-batching (may still OOM on large volumes)
+        if micro_batch_size >= batch_size:
+            # No micro-batching needed
+            z = z.to(self.device)
+            x_recon = self.model.decode(z)
+            x_recon = x_recon.to(original_device)
+        else:
+            # Micro-batching: process one chunk at a time
+            outputs = []
+            for i in range(0, batch_size, micro_batch_size):
+                z_batch = z[i:i + micro_batch_size].to(self.device)
+                x_recon_batch = self.model.decode(z_batch)
+                outputs.append(x_recon_batch.to(original_device))
+
+                # Clear CUDA cache between micro-batches
+                del z_batch, x_recon_batch
+                torch.cuda.empty_cache()
+
+            x_recon = torch.cat(outputs, dim=0)
+
+        # Move model back to original device if offloaded
+        if offload_to_cpu and self.device != torch.device('cpu'):
+            self.model.to(self.device)
+            torch.cuda.empty_cache()
 
         return x_recon
+
+    @torch.no_grad()
+    def _decode_with_spatial_chunking(
+        self, z: torch.Tensor, chunk_size: int, micro_batch_size: int, target_device: torch.device
+    ) -> torch.Tensor:
+        """
+        Decode latent using spatial chunking (manual sliding window over 3D volume).
+
+        This method splits the latent volume into smaller 3D chunks and decodes them
+        separately, which prevents OOM for large volumes.
+
+        Args:
+            z: Latent tensor [B, C, D, H, W] (continuous embeddings, not quantized indices)
+            chunk_size: Size of chunks in latent space (e.g., 32 = 32x32x32 latent chunks)
+            micro_batch_size: Process this many samples at a time
+            target_device: Device to return results on
+
+        Returns:
+            Decoded volume [B, 1, D*8, H*8, W*8]
+        """
+        batch_size = z.shape[0]
+        B, C, D, H, W = z.shape
+
+        # Calculate output shape
+        output_D = D * self.compression_factor
+        output_H = H * self.compression_factor
+        output_W = W * self.compression_factor
+
+        # Calculate number of chunks per dimension
+        num_chunks_d = (D + chunk_size - 1) // chunk_size
+        num_chunks_h = (H + chunk_size - 1) // chunk_size
+        num_chunks_w = (W + chunk_size - 1) // chunk_size
+
+        outputs = []
+
+        for i in range(0, batch_size, micro_batch_size):
+            z_batch = z[i:i + micro_batch_size]
+            current_batch_size = z_batch.shape[0]
+
+            # Initialize output volume
+            output_volume = torch.zeros(
+                current_batch_size, 1, output_D, output_H, output_W,
+                dtype=z_batch.dtype, device=target_device
+            )
+
+            # Process each chunk
+            for d_idx in range(num_chunks_d):
+                for h_idx in range(num_chunks_h):
+                    for w_idx in range(num_chunks_w):
+                        # Calculate chunk boundaries in latent space
+                        d_start = d_idx * chunk_size
+                        d_end = min((d_idx + 1) * chunk_size, D)
+                        h_start = h_idx * chunk_size
+                        h_end = min((h_idx + 1) * chunk_size, H)
+                        w_start = w_idx * chunk_size
+                        w_end = min((w_idx + 1) * chunk_size, W)
+
+                        # Extract chunk
+                        z_chunk = z_batch[:, :, d_start:d_end, h_start:h_end, w_start:w_end]
+
+                        # Move to GPU and decode
+                        z_chunk_gpu = z_chunk.to(self.device)
+
+                        # Decode using model's standard decode (not decode_sliding)
+                        # Pass through post_vq_conv and decoder
+                        h_chunk = self.model.post_vq_conv(z_chunk_gpu)
+                        x_chunk = self.model.decoder(h_chunk)
+
+                        # Calculate output boundaries in image space
+                        out_d_start = d_start * self.compression_factor
+                        out_d_end = d_end * self.compression_factor
+                        out_h_start = h_start * self.compression_factor
+                        out_h_end = h_end * self.compression_factor
+                        out_w_start = w_start * self.compression_factor
+                        out_w_end = w_end * self.compression_factor
+
+                        # Place chunk in output volume
+                        output_volume[:, :, out_d_start:out_d_end,
+                                     out_h_start:out_h_end,
+                                     out_w_start:out_w_end] = x_chunk.to(target_device)
+
+                        # Cleanup
+                        del z_chunk_gpu, h_chunk, x_chunk
+                        torch.cuda.empty_cache()
+
+            outputs.append(output_volume)
+
+        return torch.cat(outputs, dim=0)
 
     @torch.no_grad()
     def forward(self, x: torch.Tensor) -> torch.Tensor:
