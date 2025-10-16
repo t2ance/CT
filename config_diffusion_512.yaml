@@ -5,7 +5,7 @@
 # Data configuration
 data:
   # Path to cached latent representations (pre-encoded by VQ-AE)
-  latent_cache_dir: "./latents_cache"
+  latent_cache_dir: "./latents_cache_512"
 
   # VQ-AE checkpoint for decoding (visualization & metrics)
   vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
@@ -20,19 +20,19 @@ data:
 # Model architecture (3D UNet for diffusion)
 model:
   # Base model channels (scaled up from 64 for better performance)
-  # model_channels: 64   # Original baseline
+  model_channels: 64   # Original baseline
   # model_channels: 128  # Previous scaling (SCALED UP v1)
-  model_channels: 192    # Further scaled up for more capacity
+  # model_channels: 192    # Further scaled up for more capacity
 
   # Channel multipliers per resolution level
-  # channel_mult: [1, 2, 4, 4]  # Original baseline
+  channel_mult: [1, 2, 4, 4]  # Original baseline
   # channel_mult: [4, 4]         # Previous scaling (SCALED UP v1)
-  channel_mult: [1, 2, 4, 8]     # Deeper architecture with more resolution levels
+  # channel_mult: [1, 2, 4, 8]     # Deeper architecture with more resolution levels
 
   # Number of ResNet blocks per level
-  # num_blocks: 2  # Original baseline
+  num_blocks: 2  # Original baseline
   # num_blocks: 5  # Previous scaling (SCALED UP v1)
-  num_blocks: 3    # Balanced depth per level (total blocks = 3 * 4 levels = 12)
+  # num_blocks: 3    # Balanced depth per level (total blocks = 3 * 4 levels = 12)
 
   # Which levels get attention (0=highest res, 3=lowest res)
   # attention_levels: [2, 3]  # Original baseline
@@ -40,18 +40,18 @@ model:
   attention_levels: [1, 2, 3]  # Multi-scale attention at multiple levels
 
   # Time embedding dimension
-  # time_embed_dim: 256  # Original baseline
+  time_embed_dim: 256  # Original baseline
   # time_embed_dim: 512  # Previous scaling (SCALED UP v1)
-  time_embed_dim: 768    # Larger time embedding for better temporal modeling
+  # time_embed_dim: 768    # Larger time embedding for better temporal modeling
 
   # Dropout for regularization
-  # dropout: 0.0  # Original baseline
+  dropout: 0.0  # Original baseline
   # dropout: 0    # Previous scaling (ADDED DROPOUT v1)
-  dropout: 0.3    # Light dropout for regularization
+  # dropout: 0.3    # Light dropout for regularization
 
   # Number of attention heads
-  # num_heads: 8   # Previous scaling
-  num_heads: 12    # More attention heads for richer representations
+  num_heads: 8   # Previous scaling
+  # num_heads: 12    # More attention heads for richer representations
 
   # Input/output channels (latent space)
   in_channels: 8  # LDCT latent
@@ -84,8 +84,8 @@ training:
   # Batch sizes
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
-  train_batch_size: 64    # Reduced for larger model (adjust based on GPU memory)
-  eval_batch_size: 8      # Reduced for larger model
+  train_batch_size: 1    # Reduced for larger model (adjust based on GPU memory)
+  eval_batch_size: 1      # Reduced for larger model
   seed: 42
 
   # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)

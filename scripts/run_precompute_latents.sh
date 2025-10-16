@@ -14,7 +14,7 @@ set -e  # Exit on error
 # Configuration (hardcoded paths)
 DATA_DIR="/data1/peijia/ct/processed/ct_pairs"
 OUTPUT_DIR="./latents_cache_v2"
-CONFIG_FILE="config_diffusion.yaml"
+CONFIG_FILE="config_diffusion_.yaml"
 
 # Activate conda environment
 if [ ! -z "${CONDA_DEFAULT_ENV}" ]; then
@@ -90,7 +90,7 @@ python precompute_latents.py \
  --latent_cache_dir latents_cache_v3 \
  --vae_checkpoint ~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt \
  --device cuda \
- --config config_diffusion.yaml \
+ --config config_diffusion_512.yaml \
  --target_shape 200 512 512 \
  --batch_size 1
 

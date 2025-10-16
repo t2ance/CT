@@ -249,6 +249,8 @@ def encode_and_save(
     """
     Encode CT pairs to latent space and save to disk.
 
+    Existing cached files in `output_dir` are detected and skipped, enabling resume.
+
     Args:
         pairs: List of (ld_path, hd_path) tuples
         vae: Frozen VQ-AE model
@@ -272,6 +274,12 @@ def encode_and_save(
         # Load and preprocess batch
         for offset, (ld_path, hd_path) in enumerate(batch_pairs):
             try:
+                sample_idx = start + offset
+                output_path = output_dir / f"sample_{sample_idx:03d}.pt"
+                if output_path.exists():
+                    print(f"Skipping existing {output_path.name}")
+                    continue
+
                 ld_ct = load_ct_scan(ld_path, target_shape, clip_range, device)
                 hd_ct = load_ct_scan(hd_path, target_shape, clip_range, device)
             except Exception as e:
@@ -280,7 +288,7 @@ def encode_and_save(
 
             ld_batch.append(ld_ct)
             hd_batch.append(hd_ct)
-            metadata.append((start + offset, ld_path, hd_path))
+            metadata.append((sample_idx, ld_path, hd_path, output_path))
 
         if not metadata:
             progress.update(len(batch_pairs))
@@ -296,8 +304,7 @@ def encode_and_save(
         ld_latents = ld_latents.cpu()
         hd_latents = hd_latents.cpu()
 
-        for (sample_idx, ld_path, hd_path), ld_latent, hd_latent in zip(metadata, ld_latents, hd_latents):
-            output_path = output_dir / f"sample_{sample_idx:03d}.pt"
+        for (sample_idx, ld_path, hd_path, output_path), ld_latent, hd_latent in zip(metadata, ld_latents, hd_latents):
             torch.save({
                 'ld_latent': ld_latent,
                 'hd_latent': hd_latent,

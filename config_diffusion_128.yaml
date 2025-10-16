@@ -1,0 +1,180 @@
+# Configuration for CT Super-Resolution with Latent Diffusion
+# Model: 3D UNet Diffusion in VQ-AE Latent Space
+# Last updated: 2025-01-12 (Fixed data_range bug)
+
+# Data configuration
+data:
+  # Path to cached latent representations (pre-encoded by VQ-AE)
+  latent_cache_dir: "./latents_cache_128"
+
+  # VQ-AE checkpoint for decoding (visualization & metrics)
+  vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
+
+  # Latent normalization (keep False - latents are ~[-30, 30])
+  normalize_latents: false
+
+  # Expected latent shape (after VQ-AE encoding)
+  # Example: [200, 128, 128] CT → [25, 16, 16] latent (8× compression)
+  latent_channels: 8 # Cℓ from VQ-AE
+
+# Model architecture (3D UNet for diffusion)
+model:
+  # Base model channels (scaled up from 64 for better performance)
+  # model_channels: 64   # Original baseline
+  # model_channels: 128  # Previous scaling (SCALED UP v1)
+  model_channels: 192    # Further scaled up for more capacity
+
+  # Channel multipliers per resolution level
+  # channel_mult: [1, 2, 4, 4]  # Original baseline
+  # channel_mult: [4, 4]         # Previous scaling (SCALED UP v1)
+  channel_mult: [1, 2, 4, 8]     # Deeper architecture with more resolution levels
+
+  # Number of ResNet blocks per level
+  # num_blocks: 2  # Original baseline
+  # num_blocks: 5  # Previous scaling (SCALED UP v1)
+  num_blocks: 3    # Balanced depth per level (total blocks = 3 * 4 levels = 12)
+
+  # Which levels get attention (0=highest res, 3=lowest res)
+  # attention_levels: [2, 3]  # Original baseline
+  # attention_levels: [1]      # Previous scaling (MORE ATTENTION v1)
+  attention_levels: [1, 2, 3]  # Multi-scale attention at multiple levels
+
+  # Time embedding dimension
+  # time_embed_dim: 256  # Original baseline
+  # time_embed_dim: 512  # Previous scaling (SCALED UP v1)
+  time_embed_dim: 768    # Larger time embedding for better temporal modeling
+
+  # Dropout for regularization
+  # dropout: 0.0  # Original baseline
+  # dropout: 0    # Previous scaling (ADDED DROPOUT v1)
+  dropout: 0.3    # Light dropout for regularization
+
+  # Number of attention heads
+  # num_heads: 8   # Previous scaling
+  num_heads: 12    # More attention heads for richer representations
+
+  # Input/output channels (latent space)
+  in_channels: 8  # LDCT latent
+  out_channels: 8  # HDCT latent (predict noise in latent space)
+
+  # Conditioning: concatenate LDCT latent to HDCT latent
+  concat_conditioning: true
+
+  # Optional FlashAttention acceleration (requires CUDA + flash-attn package)
+  use_flash_attention: true
+
+# Diffusion scheduler
+scheduler:
+  # Training timesteps (T in DDPM paper)
+  num_train_timesteps: 1000
+
+  # Beta schedule for noise
+  beta_schedule: "linear" # 'linear' or 'scaled_linear'
+  beta_start: 0.0001
+  beta_end: 0.02
+
+  # Prediction type
+  prediction_type: "epsilon" # Predict noise (standard DDPM)
+
+  # Don't clip samples (latent space is ~[-30, 30])
+  clip_sample: false
+
+# Training configuration
+training:
+  # Batch sizes
+  # train_batch_size: 48  # Previous setting
+  # eval_batch_size: 8    # Previous setting
+  train_batch_size: 64    # Reduced for larger model (adjust based on GPU memory)
+  eval_batch_size: 8      # Reduced for larger model
+  seed: 42
+
+  # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
+  # gradient_accumulation_steps: 1  # Previous setting
+  gradient_accumulation_steps: 1    # Increase for larger effective batch size
+
+  num_epochs: 5000
+
+  # Optimizer
+  # learning_rate: 5.0e-5  # Previous setting
+  learning_rate: 3.0e-5    # Slightly lower LR for larger model stability
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+  # weight_decay: 0.03     # Previous setting
+  weight_decay: 0.5       # Reduced weight decay (model has dropout now)
+
+  # Learning rate scheduler
+  lr_scheduler_type: "linear" # 'linear' with warmup
+  # warmup_ratio: 0.06     # Previous setting (6% of total steps)
+  warmup_ratio: 0.08       # Longer warmup for larger model (8% of total steps)
+  lr_min: 0.0              # Minimum LR after decay
+
+  # Mixed precision training
+  mixed_precision: "bf16" # 'fp16', 'bf16', or 'no'
+
+  # Gradient clipping
+  max_grad_norm: 1.0
+
+  # Validation and checkpointing
+  save_every: 10000 # Save checkpoint every N steps
+  val_every: 400 # Lightweight validation (MSE only)
+
+  # Number of dataloader workers
+  num_workers: 8
+
+  # Logging
+  log_every: 1 # Log metrics every N steps
+  use_wandb: true
+  wandb_project: "ct-diffusion"
+  wandb_entity: null # Set to your wandb username
+  wandb_run_name: null # Auto-generated if null
+  wandb_tags: ["latent-diffusion", "ct", "3d", "scaled-up"]
+  
+  
+
+# Validation configuration (for SSIM/PSNR metrics)
+validation:
+  # Two-tier validation strategy:
+  # - Lightweight: Only MSE loss (fast, every val_every steps)
+  # - Full: SSIM + PSNR metrics (slow, every full_val_every steps)
+
+  # Full validation settings
+  compute_train_metrics: true  # Set to false to disable train subset evaluation
+  enable_full_validation: true # Enable SSIM/PSNR metrics
+  full_val_every: 400 # Run full validation every N steps (slower)
+  num_samples: 32 # Number of validation samples to evaluate (4-8 recommended)
+
+  num_visualizations: 1
+
+  # Metrics settings
+  data_range:
+    2.0 # VQ-AE output range for SSIM/PSNR (normalized to ~[-1, 1])
+
+  compute_slice_wise: true # Compute metrics slice-wise (more robust for 3D)
+
+  # Distributed evaluation
+  distributed_eval: true # Enable distributed evaluation across GPUs
+
+# Inference configuration
+inference:
+  # DDIM sampling (faster than DDPM)
+  use_ddim: true
+  num_inference_steps: 100 # Was 50 (can increase for quality)
+
+  # Guidance scale (for classifier-free guidance, if implemented)
+  guidance_scale: 1.0 # 1.0 = no guidance
+
+# Output directories
+output:
+  # Where to save checkpoints and logs
+  checkpoint_dir: "./outputs/checkpoints"
+  log_dir: "./outputs/logs"
+  visualization_dir: "./outputs/visualizations"
+
+#   1. model_channels: 128 → 192 (+50% more base channels)
+  # 2. channel_mult: [4, 4] → [1, 2, 4, 8] (4 resolution levels instead of 2, deeper architecture)
+  # 3. num_blocks: 5 → 3 (more balanced, but total blocks = 3 × 4 levels = 12 blocks)
+  # 4. attention_levels: [1] → [1, 2, 3] (multi-scale attention at 3 levels)
+  # 5. time_embed_dim: 512 → 768 (+50% larger time embeddings)
+  # 6. dropout: 0 → 0.1 (added regularization)
+  # 7. num_heads: 8 → 12 (+50% more attention heads)
