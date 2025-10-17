@@ -10,7 +10,7 @@ if [ -z "${CONDA_DEFAULT_ENV}" ]; then
 fi
 
 # Setup logging
-LOG_DIR="./log"
+LOG_DIR="./tmp/log"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/train_256.log"
 PID_FILE="${LOG_DIR}/train_256.pid"

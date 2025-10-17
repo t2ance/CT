@@ -50,7 +50,7 @@ import wandb
 # Custom modules
 from model_factory import build_diffusion_model, DiffusionUNet3D
 from models.vqae_wrapper import FrozenVQAE
-from data.latent_dataset import LatentCTDataset, create_latent_dataloaders, create_train_subset_dataloader
+from data.hf_dataset_loader import create_hf_dataloaders, create_train_subset_dataloader
 from utils.metrics import DistributedMetricsCalculator
 from utils.visualization import CTVisualization
 
@@ -126,6 +126,15 @@ def validate(
         hd_latent = batch["hd_latent"]
 
         B = hd_latent.shape[0]
+
+        # Resize LD latent to match HD latent depth if needed
+        if ld_latent.shape[2] != hd_latent.shape[2]:
+            ld_latent = F.interpolate(
+                ld_latent,
+                size=hd_latent.shape[2:],
+                mode='trilinear',
+                align_corners=False
+            )
 
         # Sample random timesteps
         timesteps = torch.randint(
@@ -263,6 +272,15 @@ def validate_with_metrics(
         hd_latent_gt = batch["hd_latent"].to(accelerator.device)
         batch_size = hd_latent_gt.shape[0]
 
+        # Resize LD latent to match HD latent depth if needed
+        if ld_latent.shape[2] != hd_latent_gt.shape[2]:
+            ld_latent = F.interpolate(
+                ld_latent,
+                size=hd_latent_gt.shape[2:],
+                mode='trilinear',
+                align_corners=False
+            )
+
         # Start from pure noise
         hd_latent_pred = torch.randn_like(hd_latent_gt)
 
@@ -279,13 +297,18 @@ def validate_with_metrics(
                 noise_pred, t, hd_latent_pred
             ).prev_sample
 
-        # Decode latents to CT space with spatial chunking to save memory
+        # Decode predicted latent to CT space with spatial chunking to save memory
         # Use 32x32x32 latent chunks (256x256x256 in image space) to avoid 18GB allocations
         # This processes ~2-3GB per chunk instead of 18GB for full volume
         pred_ct = vae.decode(hd_latent_pred, micro_batch_size=1, spatial_chunk_size=spatial_chunk_size)  # [B, 1, D, H, W]
-        gt_ct = vae.decode(hd_latent_gt, micro_batch_size=1, spatial_chunk_size=spatial_chunk_size)
+
+        # CRITICAL: Use original HD CT from batch (not reconstructed via VQ-AE decode)
+        # This gives accurate metrics without VQ-AE reconstruction artifacts
+        gt_ct = batch["hd_ct"]  # [B, 1, D, H, W], already normalized to [-1, 1]
+
+        # Decode LD CT for visualization if needed
         ld_ct = (
-            vae.decode(ld_latent, micro_batch_size=1, spatial_chunk_size=spatial_chunk_size)
+            batch["ld_ct"]  # [B, 1, D, H, W]
             if collect_visualizations and viz_count < viz_target
             else None
         )
@@ -582,13 +605,22 @@ def train(config: dict, args):
     training_config["train_batch_size"] = train_batch_size
     training_config["eval_batch_size"] = eval_batch_size
 
-    train_loader, val_loader = create_latent_dataloaders(
-        latent_dir=data_config["latent_cache_dir"],
+    # Load from HuggingFace Hub
+    hub_repo = data_config["hub_repo"]
+    cache_dir = data_config.get("cache_dir", "/data1/peijia/ct")
+
+    if accelerator.is_main_process:
+        accelerator.print(f"  Loading from HuggingFace Hub: {hub_repo}")
+        accelerator.print(f"  Cache directory: {cache_dir}")
+
+    train_loader, val_loader = create_hf_dataloaders(
+        hub_repo=hub_repo,
         train_batch_size=train_batch_size,
         eval_batch_size=eval_batch_size,
         num_workers=training_config.get("num_workers", 4),
         normalize_latents=data_config.get("normalize_latents", False),
         pin_memory=True,
+        cache_dir=cache_dir,
     )
 
     if accelerator.is_main_process:
@@ -609,12 +641,13 @@ def train(config: dict, args):
             accelerator.print(f"\nCreating train subset for validation metrics...")
 
         train_subset_loader = create_train_subset_dataloader(
-            latent_dir=data_config["latent_cache_dir"],
+            hub_repo=hub_repo,
             num_samples=num_val_samples,
             batch_size=eval_batch_size,
             num_workers=training_config.get("num_workers", 4),
             normalize_latents=data_config.get("normalize_latents", False),
             pin_memory=True,
+            cache_dir=cache_dir,
         )
 
         if accelerator.is_main_process:
@@ -759,13 +792,27 @@ def train(config: dict, args):
             desc=f"Epoch {epoch+1}/{num_epochs}",
             disable=not accelerator.is_local_main_process,
         )
+        print(f"Begin of epoch {epoch+1}")
 
         for step, batch in enumerate(train_loader):
+            print("batch loaded")
             with accelerator.accumulate(model):
                 ld_latent = batch["ld_latent"]
                 hd_latent = batch["hd_latent"]
 
                 B = hd_latent.shape[0]
+
+                # Resize LD latent to match HD latent depth if needed
+                if ld_latent.shape[2] != hd_latent.shape[2]:
+                    # ld_latent: [B, C, D_ld, H, W]
+                    # hd_latent: [B, C, D_hd, H, W]
+                    # Resize only depth dimension to match HD
+                    ld_latent = F.interpolate(
+                        ld_latent,
+                        size=hd_latent.shape[2:],  # Match [D, H, W] of HD
+                        mode='trilinear',
+                        align_corners=False
+                    )
 
                 # Sample random timesteps
                 timesteps = torch.randint(

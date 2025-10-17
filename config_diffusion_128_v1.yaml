@@ -4,8 +4,11 @@
 
 # Data configuration
 data:
-  # Path to cached latent representations (pre-encoded by VQ-AE)
-  latent_cache_dir: "./latents_cache_128"
+  # HuggingFace Hub dataset
+  hub_repo: "t2ance/ct-diffusion-128"
+
+  # Cache directory for HuggingFace datasets
+  cache_dir: "/data1/peijia/ct"
 
   # VQ-AE checkpoint for decoding (visualization & metrics)
   vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
@@ -20,8 +23,8 @@ data:
 # Model architecture (3D UNet for diffusion)
 model:
   # Base model channels (scaled up from 64 for better performance)
-  # model_channels: 64   # Original baseline
-  model_channels: 128 # Previous scaling (SCALED UP v1)
+  model_channels: 64   # Original baseline
+  # model_channels: 128 # Previous scaling (SCALED UP v1)
   # model_channels: 192    # Further scaled up for more capacity
 
   # Channel multipliers per resolution level
@@ -40,8 +43,8 @@ model:
   attention_levels: [1, 2] # Multi-scale attention at multiple levels
 
   # Time embedding dimension
-  # time_embed_dim: 256  # Original baseline
-  time_embed_dim: 512  # Previous scaling (SCALED UP v1)
+  time_embed_dim: 256  # Original baseline
+  # time_embed_dim: 512  # Previous scaling (SCALED UP v1)
   # time_embed_dim: 768 # Larger time embedding for better temporal modeling
 
   # Dropout for regularization
@@ -84,6 +87,8 @@ training:
   # Batch sizes
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
+  # train_batch_size: 128 # Reduced for larger model (adjust based on GPU memory)
+  # eval_batch_size: 16 # Reduced for larger model
   train_batch_size: 128 # Reduced for larger model (adjust based on GPU memory)
   eval_batch_size: 16 # Reduced for larger model
   seed: 42
@@ -96,7 +101,7 @@ training:
 
   # Optimizer
   # learning_rate: 5.0e-5  # Previous setting
-  learning_rate: 3.0e-5 # Slightly lower LR for larger model stability
+  learning_rate: 1.0e-4 # Slightly lower LR for larger model stability
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
@@ -117,7 +122,7 @@ training:
 
   # Validation and checkpointing
   save_every: 10000 # Save checkpoint every N steps
-  val_every: 400 # Lightweight validation (MSE only)
+  val_every: 1 # Lightweight validation (MSE only)
 
   # Number of dataloader workers
   num_workers: 8
@@ -139,7 +144,7 @@ validation:
   # Full validation settings
   compute_train_metrics: true # Set to false to disable train subset evaluation
   enable_full_validation: true # Enable SSIM/PSNR metrics
-  full_val_every: 400 # Run full validation every N steps (slower)
+  full_val_every: 1 # Run full validation every N steps (slower)
   num_samples: 32 # Number of validation samples to evaluate (4-8 recommended)
 
   num_visualizations: 1
@@ -148,6 +153,9 @@ validation:
   data_range: 2.0 # VQ-AE output range for SSIM/PSNR (normalized to ~[-1, 1])
 
   compute_slice_wise: true # Compute metrics slice-wise (more robust for 3D)
+
+  # Spatial chunking for validation (prevents OOM on large volumes)
+  spatial_chunk_size: 32 # Process 32x32x32 latent chunks (256x256x256 in image space)
 
   # Distributed evaluation
   distributed_eval: true # Enable distributed evaluation across GPUs

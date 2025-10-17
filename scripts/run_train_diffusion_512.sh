@@ -4,7 +4,7 @@
 set -e
 
 # Setup logging
-LOG_DIR="./log"
+LOG_DIR="./tmp/log"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/train_512.log"
 PID_FILE="${LOG_DIR}/train_512.pid"

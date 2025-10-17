@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ct-128-training
+spec:
+  securityContext:
+    runAsUser: 0 # 0 = root
+    runAsNonRoot: false
+  containers:
+    - name: gpu-container
+      image: gitlab-registry.nrp-nautilus.io/nrp/scientific-images/python
+      command: ["/bin/bash", "-c"]
+      args:
+        - |
+          set -e  # Exit on error
+
+          echo "==================================="
+          echo "CT Latent Diffusion Training Setup"
+          echo "==================================="
+
+          # 1. Check GPU availability
+          echo "[1/6] Checking GPU..."
+          nvidia-smi
+
+          # 2. Clone training code
+          echo "[2/6] Cloning repository..."
+          git clone https://github.com/t2ance/CT.git /workspace/CT
+          cd /workspace/CT
+
+          # 3. Setup conda environment
+          echo "[3/6] Creating conda environment..."
+          conda create -n bioagent python=3.11 -y
+          source /opt/conda/etc/profile.d/conda.sh
+          conda activate bioagent
+          pip install -r requirements.txt
+
+          # 4. Download pre-computed latents from HuggingFace Hub
+          echo "[4/6] Downloading pre-computed latents..."
+          pip install huggingface_hub
+
+          # TODO: Replace with your actual HuggingFace repo
+          # Option A: Public dataset
+          python -c "
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id='YOUR_USERNAME/ct-latents-128',  # Change this!
+              repo_type='dataset',
+              local_dir='./latents_cache_128',
+              allow_patterns=['*.pt']
+          )
+          "
+
+          # Option B: Private dataset (requires HF_TOKEN secret)
+          # export HF_TOKEN=$HF_TOKEN
+          # huggingface-cli download YOUR_USERNAME/ct-latents-128 --repo-type dataset --local-dir ./latents_cache_128
+
+          echo "Latent cache downloaded:"
+          ls -lh latents_cache_128/
+
+          # 5. Download VQ-AE checkpoint (needed for validation only)
+          echo "[5/6] Downloading VQ-AE checkpoint..."
+          mkdir -p checkpoints
+
+          # Option A: From HuggingFace (recommended)
+          python -c "
+          from huggingface_hub import hf_hub_download
+          hf_hub_download(
+              repo_id='YOUR_USERNAME/vqae-ct',  # Upload your checkpoint here
+              filename='PatchVolume_8x_s2.ckpt',
+              local_dir='./checkpoints'
+          )
+          "
+
+          # Option B: Direct download (if hosted elsewhere)
+          # wget -O checkpoints/PatchVolume_8x_s2.ckpt <your-url>
+
+          # Update config to use downloaded checkpoint
+          sed -i 's|~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt|./checkpoints/PatchVolume_8x_s2.ckpt|g' config_diffusion_128.yaml
+
+          # 6. Start training
+          echo "[6/6] Starting training..."
+          echo "Training config: config_diffusion_128.yaml"
+          echo "Latent cache: latents_cache_128/"
+          echo "Accelerate config: accelerate_config_fsdp.yaml"
+
+          # Run with FSDP on 2 GPUs
+          accelerate launch \
+            --config_file accelerate_config_fsdp.yaml \
+            train_diffusion.py \
+            --config config_diffusion_128.yaml
+
+          echo "Training completed!"
+
+          # Keep pod alive for debugging
+          sleep infinity
+
+      resources:
+        requests:
+          nvidia.com/a100: "2"
+          memory: "64G"
+          cpu: "4"
+        limits:
+          nvidia.com/a100: "2"
+          memory: "64G"
+          cpu: "4"
+
+      env:
+        # Optional: Add HuggingFace token for private datasets
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: huggingface-token  # Create with: kubectl create secret generic huggingface-token --from-literal=HF_TOKEN=hf_xxx
+              key: HF_TOKEN
+              optional: true
+
+        # Weights & Biases (optional)
+        - name: WANDB_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: wandb-token
+              key: WANDB_API_KEY
+              optional: true
+
+  restartPolicy: Never
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                  - k8s-a100-01.suncorridor.org
+                  - rci-nrp-gpu-01.sdsu.edu
+                  - rci-nrp-gpu-02.sdsu.edu
+                  - rci-nrp-gpu-03.sdsu.edu
+                  - rci-nrp-gpu-04.sdsu.edu
+                  - rci-nrp-gpu-05.sdsu.edu
+                  - hcc-gpn-argo-1.unl.edu
+                  - oru-gp-argo.greatplains.net
+
+# Usage:
+# 1. Upload latents to HuggingFace:
+#    huggingface-cli upload t2ance/ct-latents-128 ./latents_cache_128 --repo-type dataset
+#
+# 2. Upload VQ-AE checkpoint:
+#    huggingface-cli upload t2ance/vqae-ct ./checkpoints/PatchVolume_8x_s2.ckpt
+#
+# 3. Update YOUR_USERNAME in the YAML above
+#
+# 4. Deploy:
+#    kubectl delete pod ct-128-training 2>/dev/null || true
+#    kubectl apply -f ct-128-improved.yaml
+#
+# 5. Monitor:
+#    kubectl logs -f ct-128-training
