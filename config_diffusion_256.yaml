@@ -27,7 +27,7 @@ model:
   # Channel multipliers per resolution level
   # channel_mult: [1, 2, 4, 4]  # Original baseline
   # channel_mult: [4, 4]         # Previous scaling (SCALED UP v1)
-  channel_mult: [1, 2, 4, 8]     # Deeper architecture with more resolution levels
+  channel_mult: [1, 2, 2, 4, 8]     # Deeper architecture with more resolution levels
 
   # Number of ResNet blocks per level
   # num_blocks: 2  # Original baseline
@@ -37,7 +37,7 @@ model:
   # Which levels get attention (0=highest res, 3=lowest res)
   # attention_levels: [2, 3]  # Original baseline
   # attention_levels: [1]      # Previous scaling (MORE ATTENTION v1)
-  attention_levels: [1, 2, 3]  # Multi-scale attention at multiple levels
+  attention_levels: [1, 2, 3, 4]  # Multi-scale attention at multiple levels
 
   # Time embedding dimension
   # time_embed_dim: 256  # Original baseline
@@ -85,7 +85,7 @@ training:
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
   train_batch_size: 8    # Reduced for larger model (adjust based on GPU memory)
-  eval_batch_size: 4      # Reduced for larger model
+  eval_batch_size: 12      # Reduced for larger model
   seed: 42
 
   # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
@@ -117,7 +117,7 @@ training:
 
   # Validation and checkpointing
   save_every: 100000 # Save checkpoint every N steps
-  val_every: 500 # Lightweight validation (MSE only)
+  val_every: 2000 # Lightweight validation (MSE only)
 
   # Number of dataloader workers
   num_workers: 8
@@ -141,7 +141,7 @@ validation:
   # Full validation settings
   compute_train_metrics: true  # Set to false to disable train subset evaluation
   enable_full_validation: true # Enable SSIM/PSNR metrics
-  full_val_every: 500 # Run full validation every N steps (slower)
+  full_val_every: 2000 # Run full validation every N steps (slower)
   num_samples: 32 # Number of validation samples to evaluate (4-8 recommended)
 
   num_visualizations: 1

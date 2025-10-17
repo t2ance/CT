@@ -84,15 +84,15 @@ training:
   # Batch sizes
   # train_batch_size: 48  # Previous setting
   # eval_batch_size: 8    # Previous setting
-  train_batch_size: 64 # Reduced for larger model (adjust based on GPU memory)
-  eval_batch_size: 8 # Reduced for larger model
+  train_batch_size: 128 # Reduced for larger model (adjust based on GPU memory)
+  eval_batch_size: 16 # Reduced for larger model
   seed: 42
 
   # Gradient accumulation (effective batch = train_batch_size * gradient_accumulation_steps)
   # gradient_accumulation_steps: 1  # Previous setting
   gradient_accumulation_steps: 1 # Increase for larger effective batch size
 
-  num_epochs: 5000
+  num_epochs: 15000
 
   # Optimizer
   # learning_rate: 5.0e-5  # Previous setting
