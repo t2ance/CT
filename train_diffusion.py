@@ -20,6 +20,7 @@ from models.vqae_wrapper import FrozenVQAE
 from data.hf_dataset_loader import create_hf_dataloaders, create_train_subset_dataloader
 from utils.metrics import DistributedMetricsCalculator
 from utils.visualization import CTVisualization
+from utils.network_visualizer import NetworkArchitectureVisualizer
 
 
 def parse_args():
@@ -604,10 +605,46 @@ def train(config: dict, args):
         if accelerator.is_main_process:
             accelerator.print(f"  Train subset samples: {len(train_subset_loader.dataset)}")
 
+    # Visualize network architecture (before model preparation)
+    validation_config = config.get("validation", {})
+    if validation_config.get("visualize_architecture", False) and accelerator.is_main_process:
+        if accelerator.is_main_process:
+            accelerator.print("\nGenerating network architecture visualization...")
+
+        try:
+            visualizer = NetworkArchitectureVisualizer(model, config)
+            diagram_path = visualizer.trace_and_visualize(
+                train_loader=train_loader,
+                device=accelerator.device,
+            )
+
+            if accelerator.is_main_process:
+                accelerator.print(f"  Architecture diagram saved: {diagram_path}")
+
+                # Upload to wandb if enabled
+                if training_config.get("use_wandb", True):
+                    # Check if file is image or HTML
+                    if diagram_path.endswith('.png') or diagram_path.endswith('.svg'):
+                        wandb.log({"architecture/network_diagram": wandb.Image(diagram_path)})
+                    elif diagram_path.endswith('.html'):
+                        wandb.log({"architecture/network_diagram": wandb.Html(open(diagram_path).read())})
+
+                    # Also log the mermaid markdown file if it exists
+                    mermaid_path = diagram_path.replace('.png', '.mmd').replace('.html', '.mmd').replace('.svg', '.mmd')
+                    if os.path.exists(mermaid_path):
+                        with open(mermaid_path) as f:
+                            mermaid_content = f.read()
+                        wandb.log({"architecture/mermaid_code": wandb.Html(f"<pre>{mermaid_content}</pre>")})
+
+                    accelerator.print("  Uploaded to wandb")
+        except Exception as e:
+            if accelerator.is_main_process:
+                accelerator.print(f"  Warning: Architecture visualization failed: {e}")
+                accelerator.print("  Continuing with training...")
+
     # Load VQ-AE for visualization and metrics
     # Load on ALL processes if distributed evaluation is enabled
     vae = None
-    validation_config = config.get("validation", {})
     distributed_eval = validation_config.get("distributed_eval", True)
 
     load_vae = (
