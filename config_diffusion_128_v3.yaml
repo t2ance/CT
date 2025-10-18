@@ -44,7 +44,7 @@ training:
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
-  weight_decay: 0.``
+  weight_decay: 0.1
   lr_scheduler_type: "linear"
   warmup_ratio: 0.08
   lr_min: 0.0
