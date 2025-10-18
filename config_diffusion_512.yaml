@@ -136,12 +136,9 @@ training:
 validation:
   # Two-tier validation strategy:
   # - Lightweight: Only MSE loss (fast, every val_every steps)
-  # - Full: SSIM + PSNR metrics (slow, every full_val_every steps)
 
   # Full validation settings
   compute_train_metrics: true  # Set to false to disable train subset evaluation
-  enable_full_validation: true # Enable SSIM/PSNR metrics
-  full_val_every: 500 # Run full validation every N steps (slower)
   num_samples: 32 # Number of validation samples to evaluate (reduced from 32 to avoid OOM)
   spatial_chunk_size: 8 # Size of spatial chunks in latent space (e.g., 8 means 8x8x8 latent chunks)
 

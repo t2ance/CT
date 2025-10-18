@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CT Super-Resolution 128",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/train_diffusion.py",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "--config",
+        "config_diffusion_128_v1.yaml"
+      ],
+      "env": {
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+        "CUDA_VISIBLE_DEVICES": "0"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "CT Super-Resolution 256",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/train_diffusion.py",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "--config",
+        "config_diffusion_256.yaml"
+      ],
+      "env": {
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+        "CUDA_VISIBLE_DEVICES": "1"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "Build HF Dataset",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/tmp/build_hf_dataset.py",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "--resolution",
+        "128",
+        "--test-only",
+        "--upload"
+      ]
+    }
+  ]
+}

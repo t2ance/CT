@@ -1,39 +1,6 @@
-"""
-Training script for CT Super-Resolution using Latent Diffusion Models
-
-This script trains a 3D UNet diffusion model in VQ-AE latent space for
-converting low-dose CT to high-dose CT.
-
-Architecture:
-    - Stage 1 (frozen): VQ-AE encoder/decoder (8× spatial compression)
-    - Stage 2 (training): 3D UNet diffusion model in latent space
-
-Training strategy:
-    - DDPM training with MSE loss on predicted noise
-    - Conditioning: Concatenate LDCT latent to HDCT latent
-    - Two-tier validation:
-        * Lightweight (every 50 steps): MSE loss only (~5s)
-        * Full (every 500 steps): SSIM + PSNR metrics (~30-60s)
-    - Distributed training with HuggingFace Accelerate (FSDP)
-    - Mixed precision training (FP16/BF16)
-    - Linear LR scheduler with warmup
-
-Usage:
-    # Single GPU
-    python train_diffusion.py --config config_diffusion.yaml
-
-    # Multi-GPU with FSDP
-    accelerate launch --config_file accelerate_config_fsdp.yaml \
-        train_diffusion.py --config config_diffusion.yaml
-
-Reconstructed from recovery note: TRAIN_DIFFUSION_RECOVERY_NOTE.md
-"""
-
 import argparse
 import os
-import sys
 from pathlib import Path
-from typing import Optional
 import yaml
 
 import torch
@@ -56,7 +23,6 @@ from utils.visualization import CTVisualization
 
 
 def parse_args():
-    """Parse command line arguments"""
     parser = argparse.ArgumentParser(
         description="Train latent diffusion model for CT super-resolution"
     )
@@ -122,8 +88,9 @@ def validate(
     num_batches = 0
 
     for batch in val_loader:
-        ld_latent = batch["ld_latent"]
-        hd_latent = batch["hd_latent"]
+        # Move tensors to device (Accelerate doesn't auto-move dict values)
+        ld_latent = batch["ld_latent"].to(accelerator.device)
+        hd_latent = batch["hd_latent"].to(accelerator.device)
 
         B = hd_latent.shape[0]
 
@@ -461,14 +428,6 @@ def load_checkpoint(
     Load checkpoint and resume training.
 
     Args:
-        checkpoint_path: Path to checkpoint file
-        model: Diffusion model
-        optimizer: Optimizer
-        lr_scheduler: LR scheduler
-        accelerator: Accelerator instance
-
-    Returns:
-        epoch, global_step: Resumed epoch and global step
     """
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
@@ -496,13 +455,6 @@ def load_checkpoint(
 
 
 def train(config: dict, args):
-    """
-    Main training function.
-
-    Args:
-        config: Configuration dictionary
-        args: Command line arguments
-    """
     # Initialize accelerator
     training_config = config["training"]
     accelerator = Accelerator(
@@ -513,7 +465,6 @@ def train(config: dict, args):
         log_with="wandb" if training_config.get("use_wandb", True) else None,
     )
 
-    # Setup output directories
     output_config = config["output"]
     checkpoint_dir = args.output_dir or output_config["checkpoint_dir"]
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -620,7 +571,7 @@ def train(config: dict, args):
         num_workers=training_config.get("num_workers", 4),
         normalize_latents=data_config.get("normalize_latents", False),
         pin_memory=True,
-        cache_dir=cache_dir,
+        cache_dir=cache_dir
     )
 
     if accelerator.is_main_process:
@@ -630,7 +581,6 @@ def train(config: dict, args):
         accelerator.print(f"  Eval batch size: {eval_batch_size}")
         accelerator.print(f"  Train batches: {len(train_loader)}")
 
-    # Create train subset dataloader for validation metrics
     validation_config = config.get("validation", {})
     num_val_samples = validation_config.get("num_samples", 4)
     compute_train_metrics = validation_config.get("compute_train_metrics", True)
@@ -647,7 +597,7 @@ def train(config: dict, args):
             num_workers=training_config.get("num_workers", 4),
             normalize_latents=data_config.get("normalize_latents", False),
             pin_memory=True,
-            cache_dir=cache_dir,
+            cache_dir=cache_dir
         )
 
         if accelerator.is_main_process:
@@ -658,11 +608,10 @@ def train(config: dict, args):
     vae = None
     validation_config = config.get("validation", {})
     distributed_eval = validation_config.get("distributed_eval", True)
-    enable_full_validation = validation_config.get("enable_full_validation", True)
 
     load_vae = (
         training_config.get("use_wandb", True) and accelerator.is_main_process
-    ) or (enable_full_validation and distributed_eval)
+    ) or distributed_eval
 
     if load_vae:
         if accelerator.is_main_process:
@@ -778,9 +727,9 @@ def train(config: dict, args):
         accelerator.print("=" * 70)
 
     val_every = training_config.get("val_every", 50)
-    save_every = training_config.get("save_every", 200)
+    save_every = training_config.get("save_every", 10000)
+
     log_every = training_config.get("log_every", 10)
-    full_val_every = validation_config.get("full_val_every", 500)
     num_val_samples = validation_config.get("num_samples", 4)
     max_grad_norm = training_config.get("max_grad_norm", 1.0)
 
@@ -795,10 +744,10 @@ def train(config: dict, args):
         print(f"Begin of epoch {epoch+1}")
 
         for step, batch in enumerate(train_loader):
-            print("batch loaded")
             with accelerator.accumulate(model):
-                ld_latent = batch["ld_latent"]
-                hd_latent = batch["hd_latent"]
+                # Move tensors to device (Accelerate doesn't auto-move dict values)
+                ld_latent = batch["ld_latent"].to(accelerator.device)
+                hd_latent = batch["hd_latent"].to(accelerator.device)
 
                 B = hd_latent.shape[0]
 
@@ -882,91 +831,86 @@ def train(config: dict, args):
                 accelerator.log({"val/loss": val_loss}, step=global_step)
                 accelerator.print(f"  MSE loss: {val_loss:.4f}")
 
-                # Full validation with SSIM/PSNR metrics (less frequent)
-                if enable_full_validation and (global_step % full_val_every == 0):
-                    # Validation set
-                    if accelerator.is_main_process:
+                if accelerator.is_main_process:
+                    accelerator.print(
+                        f"\nRunning full validation on VAL set ({num_val_samples} samples)..."
+                    )
+
+                val_metrics, val_viz_dict = validate_with_metrics(
+                    model,
+                    val_loader,
+                    vae,
+                    config,
+                    accelerator,
+                    num_samples=num_val_samples,
+                    spatial_chunk_size=validation_config.get("spatial_chunk_size", 32),
+                )
+
+                if accelerator.is_main_process:
+                    if val_viz_dict:
+                        # Log with val/ prefix
+                        val_viz_log = {f"{k}": v for k, v in val_viz_dict.items()}
+                        accelerator.log(val_viz_log, step=global_step)
+                        accelerator.print("Val visualizations generated.")
+
+                    if val_metrics:
+                        log_dict = {
+                            f"val/metrics/{k}": v for k, v in val_metrics.items()
+                        }
+                        accelerator.log(log_dict, step=global_step)
+
                         accelerator.print(
-                            f"\nRunning full validation on VAL set ({num_val_samples} samples)..."
+                            f"  Val SSIM: {val_metrics.get('ssim', 0):.4f}"
+                        )
+                        accelerator.print(
+                            f"  Val PSNR: {val_metrics.get('psnr', 0):.2f} dB"
+                        )
+                        accelerator.print(
+                            f"  Samples evaluated: {val_metrics.get('num_samples', 0)}"
                         )
 
-                    val_metrics, val_viz_dict = validate_with_metrics(
+                if compute_train_metrics and train_subset_loader is not None:
+                    if accelerator.is_main_process:
+                        accelerator.print(
+                            f"\nRunning full validation on TRAIN subset ({num_val_samples} samples)..."
+                        )
+
+                    train_metrics, train_viz_dict = validate_with_metrics(
                         model,
-                        val_loader,
+                        train_subset_loader,
                         vae,
                         config,
                         accelerator,
                         num_samples=num_val_samples,
-                        spatial_chunk_size=validation_config.get("spatial_chunk_size", 32),
                     )
 
                     if accelerator.is_main_process:
-                        if val_viz_dict:
-                            # Log with val/ prefix
-                            val_viz_log = {f"{k}": v for k, v in val_viz_dict.items()}
-                            accelerator.log(val_viz_log, step=global_step)
-                            accelerator.print("Val visualizations generated.")
+                        if train_viz_dict:
+                            # Log with train/ prefix
+                            train_viz_log = {
+                                f"train/{k.split('/')[-1]}": v
+                                for k, v in train_viz_dict.items()
+                            }
+                            accelerator.log(train_viz_log, step=global_step)
+                            accelerator.print("Train visualizations generated.")
 
-                        if val_metrics:
+                        if train_metrics:
                             log_dict = {
-                                f"val/metrics/{k}": v for k, v in val_metrics.items()
+                                f"train/metrics/{k}": v
+                                for k, v in train_metrics.items()
                             }
                             accelerator.log(log_dict, step=global_step)
 
                             accelerator.print(
-                                f"  Val SSIM: {val_metrics.get('ssim', 0):.4f}"
+                                f"  Train SSIM: {train_metrics.get('ssim', 0):.4f}"
                             )
                             accelerator.print(
-                                f"  Val PSNR: {val_metrics.get('psnr', 0):.2f} dB"
+                                f"  Train PSNR: {train_metrics.get('psnr', 0):.2f} dB"
                             )
                             accelerator.print(
-                                f"  Samples evaluated: {val_metrics.get('num_samples', 0)}"
+                                f"  Samples evaluated: {train_metrics.get('num_samples', 0)}"
                             )
 
-                    # Train subset (if enabled)
-                    if compute_train_metrics and train_subset_loader is not None:
-                        if accelerator.is_main_process:
-                            accelerator.print(
-                                f"\nRunning full validation on TRAIN subset ({num_val_samples} samples)..."
-                            )
-
-                        train_metrics, train_viz_dict = validate_with_metrics(
-                            model,
-                            train_subset_loader,
-                            vae,
-                            config,
-                            accelerator,
-                            num_samples=num_val_samples,
-                        )
-
-                        if accelerator.is_main_process:
-                            if train_viz_dict:
-                                # Log with train/ prefix
-                                train_viz_log = {
-                                    f"train/{k.split('/')[-1]}": v
-                                    for k, v in train_viz_dict.items()
-                                }
-                                accelerator.log(train_viz_log, step=global_step)
-                                accelerator.print("Train visualizations generated.")
-
-                            if train_metrics:
-                                log_dict = {
-                                    f"train/metrics/{k}": v
-                                    for k, v in train_metrics.items()
-                                }
-                                accelerator.log(log_dict, step=global_step)
-
-                                accelerator.print(
-                                    f"  Train SSIM: {train_metrics.get('ssim', 0):.4f}"
-                                )
-                                accelerator.print(
-                                    f"  Train PSNR: {train_metrics.get('psnr', 0):.2f} dB"
-                                )
-                                accelerator.print(
-                                    f"  Samples evaluated: {train_metrics.get('num_samples', 0)}"
-                                )
-
-            # Save checkpoint
             if (
                 global_step % save_every == 0
                 and accelerator.sync_gradients
@@ -990,13 +934,11 @@ def train(config: dict, args):
 
         progress_bar.close()
 
-        # End of epoch
         if accelerator.is_main_process:
             accelerator.print(
                 f"\nEpoch {epoch+1} completed. Global step: {global_step}"
             )
 
-    # Training completed
     if accelerator.is_main_process:
         accelerator.print("\n" + "=" * 70)
         accelerator.print("Training completed!")
@@ -1004,7 +946,6 @@ def train(config: dict, args):
         accelerator.print(f"Best validation loss: {best_val_loss:.4f}")
         accelerator.print(f"Final checkpoint saved to: {checkpoint_dir}")
 
-    # Save final checkpoint
     save_checkpoint(
         accelerator,
         model,
@@ -1016,13 +957,11 @@ def train(config: dict, args):
         is_best=False,
     )
 
-    # End wandb
     if training_config.get("use_wandb", True):
         accelerator.end_training()
 
 
 def main():
-    """Main entry point"""
     args = parse_args()
     config = load_config(args.config)
     print(config)
