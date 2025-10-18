@@ -75,7 +75,7 @@ spec:
           # wget -O checkpoints/PatchVolume_8x_s2.ckpt <your-url>
 
           # Update config to use downloaded checkpoint
-          sed -i 's|~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt|./checkpoints/PatchVolume_8x_s2.ckpt|g' config_diffusion_128.yaml
+          sed -i 's|checkpoints/PatchVolume_8x_s2.ckpt|./checkpoints/PatchVolume_8x_s2.ckpt|g' config_diffusion_128.yaml
 
           # 6. Start training
           echo "[6/6] Starting training..."

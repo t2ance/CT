@@ -3,7 +3,7 @@ data:
 
   cache_dir: "/data1/peijia/ct"
 
-  vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
+  vae_checkpoint: "checkpoints/PatchVolume_8x_s2.ckpt"
 
   normalize_latents: false
 

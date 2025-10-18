@@ -365,7 +365,7 @@ class FrozenVQAE(nn.Module):
 
 if __name__ == "__main__":
     # Quick test
-    checkpoint_path = "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
+    checkpoint_path = "checkpoints/PatchVolume_8x_s2.ckpt"
 
     print("="*70)
     print("Testing FrozenVQAE")

@@ -3,7 +3,7 @@ data:
 
   cache_dir: "/data1/peijia/ct"
 
-  vae_checkpoint: "~/projects/BioAgent/3D-MedDiffusion/checkpoints/3DMedDiffusion_checkpoints/PatchVolume_8x_s2.ckpt"
+  vae_checkpoint: "checkpoints/PatchVolume_8x_s2.ckpt"
 
   normalize_latents: false
 
@@ -57,7 +57,7 @@ training:
   use_wandb: true
   wandb_project: "ct-diffusion"
   wandb_entity: null
-  wandb_run_name: null
+  wandb_run_name: 128_v2
   wandb_tags: ["latent-diffusion", "ct", "3d", "scaled-up"]
 
 validation:
