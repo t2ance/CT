@@ -46,3 +46,4 @@ jupyter>=1.0.0
 
 einops
 einops_exts
+datasets
