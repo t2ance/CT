@@ -1,9 +1,9 @@
 data:
   hub_repo: "t2ance/ct-diffusion-128"
 
-  cache_dir: "/data1/peijia/ct"
+  cache_dir: "./cache"
 
-  vae_checkpoint: "checkpoints/PatchVolume_8x_s2.ckpt"
+  vae_checkpoint: "./checkpoints/PatchVolume_8x_s2.ckpt"
 
   normalize_latents: false
 
