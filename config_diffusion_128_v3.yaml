@@ -10,12 +10,12 @@ data:
   latent_channels: 8
 
 model:
-  model_channels: 32
+  model_channels: 64
   channel_mult: [1, 2, 4]
   num_blocks: 2
   attention_levels: [1, 2]
   time_embed_dim: 256
-  dropout: 0.3
+  dropout: 0.1
   num_heads: 8
   in_channels: 8
   out_channels: 8
@@ -44,7 +44,7 @@ training:
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1.0e-8
-  weight_decay: 0.3
+  weight_decay: 0.``
   lr_scheduler_type: "linear"
   warmup_ratio: 0.08
   lr_min: 0.0
@@ -57,7 +57,7 @@ training:
   use_wandb: true
   wandb_project: "ct-diffusion"
   wandb_entity: null
-  wandb_run_name: 128_v2
+  wandb_run_name: 128_v3
   wandb_tags: ["latent-diffusion", "ct", "3d", "scaled-up"]
 
 validation:

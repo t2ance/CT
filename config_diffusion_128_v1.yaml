@@ -62,7 +62,7 @@ training:
 
 validation:
   compute_train_metrics: true
-  num_samples: 32
+  num_samples: 8
 
   num_visualizations: 1
 
