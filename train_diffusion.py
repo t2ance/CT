@@ -624,15 +624,11 @@ def train(config: dict, args):
 
         vae_checkpoint = data_config.get("vae_checkpoint")
         if vae_checkpoint:
-            try:
-                vae = FrozenVQAE(vae_checkpoint, device=accelerator.device)
-                if accelerator.is_main_process:
-                    accelerator.print(f"  VQ-AE loaded from: {vae_checkpoint}")
-                    accelerator.print(f"  Memory: ~500 MB per process")
-            except Exception as e:
-                if accelerator.is_main_process:
-                    accelerator.print(f"  Warning: Failed to load VQ-AE: {e}")
-                vae = None
+            vae = FrozenVQAE(vae_checkpoint, device=accelerator.device)
+            if accelerator.is_main_process:
+                accelerator.print(f"  VQ-AE loaded from: {vae_checkpoint}")
+                accelerator.print(f"  Memory: ~500 MB per process")
+
 
     # Create optimizer
     optimizer = torch.optim.AdamW(
