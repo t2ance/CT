@@ -9,6 +9,8 @@ data:
 
   latent_channels: 8
 
+  timeit_collate_fn: true
+
 model:
   model_channels: 64
   channel_mult: [1, 2, 4]

@@ -571,7 +571,8 @@ def train(config: dict, args):
         num_workers=training_config.get("num_workers", 4),
         normalize_latents=data_config.get("normalize_latents", False),
         pin_memory=True,
-        cache_dir=cache_dir
+        cache_dir=cache_dir,
+        timeit_collate_fn=data_config.get("timeit_collate_fn", False)
     )
 
     if accelerator.is_main_process:

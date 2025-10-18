@@ -144,7 +144,8 @@ def create_hf_dataloaders(
     num_workers: int = 4,
     normalize_latents: bool = False,
     pin_memory: bool = True,
-    cache_dir: Optional[str] = None
+    cache_dir: Optional[str] = None,
+    timeit_collate_fn: bool = False
 ) -> Tuple[DataLoader, DataLoader]:
     """
     Create train and test dataloaders from HuggingFace Hub.
@@ -212,8 +213,9 @@ def create_hf_dataloaders(
 
     train_collate_fn = create_collate_fn(normalize_latents=normalize_latents)
     test_collate_fn = create_collate_fn(normalize_latents=normalize_latents)
-    # train_collate_fn = timeit(train_collate_fn, "train_collate_fn")
-    # test_collate_fn = timeit(test_collate_fn, "test_collate_fn")
+    if timeit_collate_fn:
+        train_collate_fn = timeit(train_collate_fn, "train_collate_fn")
+        test_collate_fn = timeit(test_collate_fn, "test_collate_fn")
 
     # Create dataloaders
     # Use num_workers > 0 with persistent_workers for faster loading
